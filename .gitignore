@@ -1,0 +1,11 @@
+node_modules/
+dist/
+server/web-dist/
+web/dist/
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/.idea/
+tools/livekit/
+*.log

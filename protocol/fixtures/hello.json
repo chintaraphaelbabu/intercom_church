@@ -1,0 +1,8 @@
+{
+  "type": "hello",
+  "protocol": 1,
+  "clientType": "operator",
+  "appVersion": "0.1.0",
+  "name": "Camera 1",
+  "sessionToken": "session-fixture-1"
+}

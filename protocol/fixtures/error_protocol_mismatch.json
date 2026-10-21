@@ -1,0 +1,5 @@
+{
+  "type": "error",
+  "code": "PROTOCOL_MISMATCH",
+  "message": "Protocol mismatch: this server speaks v1, the client speaks v2. Update the app or the server so both use v1."
+}
