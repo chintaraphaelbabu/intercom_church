@@ -2,15 +2,23 @@ package com.churchcomms.operator.discovery
 
 import android.content.Context
 import android.net.ConnectivityManager
-import android.net.nsd.NsdManager
-import android.net.nsd.NsdServiceInfo
+import android.net.LinkAddress
+import android.net.Network
+import android.net.NetworkCapabilities
 import android.net.wifi.WifiManager
-import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import java.net.Inet4Address
+import java.net.InetAddress
+import java.util.concurrent.Executors
+import javax.jmdns.JmDNS
+import javax.jmdns.ServiceEvent
+import javax.jmdns.ServiceInfo
+import javax.jmdns.ServiceListener
 
 sealed interface DiscoveryState {
     data object Idle : DiscoveryState
@@ -25,6 +33,11 @@ sealed interface DiscoveryState {
  * The service contract is `_church-comms._tcp.local` with the TXT records from
  * docs/design.md §12. A multicast lock is held while discovery runs because some
  * Android builds otherwise drop mDNS replies on Wi-Fi.
+ *
+ * JmDNS is used instead of `NsdManager` because Samsung Android 11 resolves the
+ * service inconsistently: discovery succeeds, but `resolveService` can hang and
+ * never deliver SRV/TXT/A records. JmDNS owns the query/response cycle, so the
+ * TXT records and IPv4 address arrive together.
  */
 class DiscoveryService(context: Context) {
     private val appContext = context.applicationContext
@@ -33,14 +46,54 @@ class DiscoveryService(context: Context) {
 
     private val handler = Handler(Looper.getMainLooper())
     private val found = LinkedHashMap<String, DiscoveredServer>()
-    private val resolveQueue = ArrayDeque<NsdServiceInfo>()
-    private val pending = mutableSetOf<String>()
-
-    private var nsdManager: NsdManager? = null
-    private var discoveryListener: NsdManager.DiscoveryListener? = null
+    private val mdnsExecutor = Executors.newSingleThreadExecutor { runnable ->
+        Thread(runnable, "church-comms-mdns").apply { isDaemon = true }
+    }
+    @Volatile private var jmdns: JmDNS? = null
     private var multicastLock: WifiManager.MulticastLock? = null
-    private var resolving = false
-    private var started = false
+    @Volatile private var started = false
+
+    private val listener = object : ServiceListener {
+        override fun serviceAdded(event: ServiceEvent) {
+            if (!started) {
+                return
+            }
+            Log.d(TAG, "mDNS service added: ${event.name}")
+            try {
+                jmdns?.requestServiceInfo(event.type, event.name, true, RESOLVE_TIMEOUT_MS)
+            } catch (error: Exception) {
+                Log.w(TAG, "mDNS resolve request failed for ${event.name}", error)
+            }
+        }
+
+        override fun serviceRemoved(event: ServiceEvent) {
+            Log.d(TAG, "mDNS service removed: ${event.name}")
+            handler.post {
+                if (!started) {
+                    return@post
+                }
+                if (found.remove(event.name) != null) {
+                    publishFound()
+                }
+            }
+        }
+
+        override fun serviceResolved(event: ServiceEvent) {
+            val info = event.info ?: return
+            val server = toServer(info) ?: return
+            Log.d(
+                TAG,
+                "mDNS resolved ${server.serviceName} to ${server.host}:${server.port}",
+            )
+            handler.post {
+                if (!started) {
+                    return@post
+                }
+                found[server.serviceName] = server
+                publishFound()
+            }
+        }
+    }
 
     fun start() {
         if (started) {
@@ -48,18 +101,15 @@ class DiscoveryService(context: Context) {
         }
         started = true
         acquireMulticastLock()
-        beginDiscovery()
+        startJmDns()
     }
 
     fun stop() {
         started = false
-        stopDiscovery()
         found.clear()
-        pending.clear()
-        resolveQueue.clear()
-        resolving = false
-        releaseMulticastLock()
         _state.value = DiscoveryState.Idle
+        mdnsExecutor.execute { closeJmDns() }
+        releaseMulticastLock()
     }
 
     fun retry() {
@@ -67,186 +117,138 @@ class DiscoveryService(context: Context) {
             start()
             return
         }
-        stopDiscovery()
         found.clear()
-        pending.clear()
-        resolveQueue.clear()
-        resolving = false
         _state.value = DiscoveryState.Discovering
-        handler.postDelayed(
-            {
-                if (started) {
-                    beginDiscovery()
-                }
-            },
-            300,
-        )
+        mdnsExecutor.execute {
+            closeJmDns()
+            if (!started) {
+                return@execute
+            }
+            try {
+                Thread.sleep(300)
+            } catch (_: InterruptedException) {
+                Thread.currentThread().interrupt()
+                return@execute
+            }
+            openJmDns()
+        }
     }
 
-    private fun beginDiscovery() {
-        val connectivity = appContext.getSystemService(ConnectivityManager::class.java)
-        if (connectivity?.activeNetwork == null) {
+    private fun startJmDns() {
+        if (!started) {
+            return
+        }
+        _state.value = DiscoveryState.Discovering
+        mdnsExecutor.execute { openJmDns() }
+    }
+
+    private fun openJmDns() {
+        if (!started) {
+            return
+        }
+        val address = activeAddress()
+        if (address == null) {
             _state.value = DiscoveryState.Failed(
                 "No network connection. Join the church Wi-Fi, then retry discovery.",
             )
             return
         }
 
-        val nsd = appContext.getSystemService(Context.NSD_SERVICE) as? NsdManager
-        if (nsd == null) {
-            _state.value = DiscoveryState.Failed(
-                "mDNS is not available on this device. Use a device with network service discovery.",
-            )
-            return
-        }
-        nsdManager = nsd
-
-        val listener = object : NsdManager.DiscoveryListener {
-            override fun onDiscoveryStarted(serviceType: String) {
-                if (started) {
-                    _state.value = DiscoveryState.Discovering
-                }
+        try {
+            // JmDNS reverse-resolves the local address while starting. It must not
+            // run on the main thread, or Android throws NetworkOnMainThreadException.
+            val instance = JmDNS.create(address)
+            if (!started) {
+                runCatching { instance.close() }
+                return
             }
-
-            override fun onServiceFound(serviceInfo: NsdServiceInfo) {
-                if (!started) {
-                    return
-                }
-                if (pending.add(serviceInfo.serviceName)) {
-                    resolveQueue.addLast(serviceInfo)
-                    resolveNext()
-                }
-            }
-
-            override fun onServiceLost(serviceInfo: NsdServiceInfo) {
-                if (!started) {
-                    return
-                }
-                pending.remove(serviceInfo.serviceName)
-                if (found.remove(serviceInfo.serviceName) != null) {
-                    publishFound()
-                }
-            }
-
-            override fun onDiscoveryStopped(serviceType: String) {
-                // The service list is already published; a retry starts a new pass.
-            }
-
-            override fun onStartDiscoveryFailed(serviceType: String, errorCode: Int) {
-                if (!started) {
-                    return
-                }
+            jmdns = instance
+            instance.addServiceListener(SERVICE_TYPE, listener)
+            Log.d(TAG, "JmDNS discovery started on ${address.hostAddress}")
+        } catch (error: Exception) {
+            Log.w(TAG, "JmDNS could not start", error)
+            if (started) {
                 _state.value = DiscoveryState.Failed(
-                    "mDNS discovery could not start (error $errorCode). " +
+                    "mDNS discovery could not start: ${error.message ?: "unknown error"}. " +
                         "Check that Wi-Fi is on, then retry.",
                 )
             }
-
-            override fun onStopDiscoveryFailed(serviceType: String, errorCode: Int) {
-                // Stopping is best effort; the next start replaces this listener.
-            }
         }
+    }
 
-        discoveryListener = listener
+    private fun closeJmDns() {
+        val instance = jmdns
+        jmdns = null
+        if (instance == null) {
+            return
+        }
         try {
-            nsd.discoverServices(SERVICE_TYPE, NsdManager.PROTOCOL_DNS_SD, listener)
-        } catch (_: IllegalArgumentException) {
-            discoveryListener = null
-            _state.value = DiscoveryState.Failed(
-                "mDNS discovery could not start. Check that Wi-Fi is on, then retry.",
-            )
+            instance.removeServiceListener(SERVICE_TYPE, listener)
+        } catch (_: Exception) {
+            // The listener may already be gone with the instance.
         }
-    }
-
-    private fun stopDiscovery() {
-        val nsd = nsdManager
-        val listener = discoveryListener
-        discoveryListener = null
-        if (nsd != null && listener != null) {
-            try {
-                nsd.stopServiceDiscovery(listener)
-            } catch (_: IllegalArgumentException) {
-                // The listener was already stopped; nothing to do.
-            }
-        }
-    }
-
-    private fun resolveNext() {
-        if (resolving) {
-            return
-        }
-        val nsd = nsdManager ?: return
-        if (resolveQueue.isEmpty()) {
-            return
-        }
-        val serviceInfo = resolveQueue.removeFirst()
-        resolving = true
-
         try {
-            nsd.resolveService(
-                serviceInfo,
-                object : NsdManager.ResolveListener {
-                    override fun onResolveFailed(failedInfo: NsdServiceInfo, errorCode: Int) {
-                        pending.remove(failedInfo.serviceName)
-                        resolving = false
-                        resolveNext()
-                    }
-
-                    override fun onServiceResolved(resolvedInfo: NsdServiceInfo) {
-                        if (started) {
-                            addServer(resolvedInfo)
-                        }
-                        pending.remove(resolvedInfo.serviceName)
-                        resolving = false
-                        resolveNext()
-                    }
-                },
-            )
-        } catch (_: IllegalArgumentException) {
-            pending.remove(serviceInfo.serviceName)
-            resolving = false
-            resolveNext()
+            instance.close()
+        } catch (error: Exception) {
+            Log.w(TAG, "JmDNS did not close cleanly", error)
         }
     }
 
-    @Suppress("DEPRECATION")
-    private fun addServer(info: NsdServiceInfo) {
-        val host = hostOf(info) ?: run {
-            pending.remove(info.serviceName)
-            return
+    private fun toServer(info: ServiceInfo): DiscoveredServer? {
+        if (!info.hasData()) {
+            return null
         }
-        val txt = info.attributes.mapValues { (_, value) ->
-            value.toString(Charsets.UTF_8)
-        }
-        val displayName = txt["name"]
-            ?.takeIf { it.isNotBlank() }
-            ?: info.serviceName.substringBefore("._").ifBlank { info.serviceName }
 
-        found[info.serviceName] = DiscoveredServer(
-            serviceName = info.serviceName,
-            displayName = displayName,
-            host = host,
+        val txt = LinkedHashMap<String, String>()
+        val names = info.propertyNames
+        while (names.hasMoreElements()) {
+            val key = names.nextElement()
+            info.getPropertyString(key)?.let { value -> txt[key] = value }
+        }
+
+        val local = activeLinkAddress()?.let { link ->
+            LocalLink(address = link.address, prefixLength = link.prefixLength)
+        }
+        return ResolvedMdnsService(
+            serviceName = info.name,
+            addresses = info.inetAddresses.toList(),
             port = info.port,
             txt = txt,
-        )
-        publishFound()
+        ).toDiscoveredServer(local)
     }
 
     @Suppress("DEPRECATION")
-    private fun hostOf(info: NsdServiceInfo): String? {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            info.hostAddresses
-                .firstOrNull()
-                ?.hostAddress
-                ?.takeIf { it.isNotBlank() }
-                ?.let { return it }
-            info.hostname
-                ?.takeIf { it.isNotBlank() }
-                ?.let { return it }
+    private fun discoveryNetwork(): Network? {
+        val connectivity = appContext.getSystemService(ConnectivityManager::class.java)
+            ?: return null
+        // Church Wi-Fi may have no internet, so Android can keep cellular as the
+        // default network. Discovery still has to run on the Wi-Fi link.
+        val wifi = connectivity.allNetworks.firstOrNull { network ->
+            connectivity.getNetworkCapabilities(network)
+                ?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true
         }
-        return info.host
-            ?.hostAddress
-            ?.takeIf { it.isNotBlank() }
+        return wifi ?: connectivity.activeNetwork
+    }
+
+    private fun activeLinkAddress(): LinkAddress? {
+        val connectivity = appContext.getSystemService(ConnectivityManager::class.java)
+            ?: return null
+        val network = discoveryNetwork() ?: return null
+        val link = connectivity.getLinkProperties(network) ?: return null
+        return link.linkAddresses.firstOrNull {
+            it.address is Inet4Address && !it.address.isLoopbackAddress
+        }
+    }
+
+    private fun activeAddress(): InetAddress? {
+        activeLinkAddress()?.let { return it.address }
+        val connectivity = appContext.getSystemService(ConnectivityManager::class.java)
+            ?: return null
+        val network = discoveryNetwork() ?: return null
+        val link = connectivity.getLinkProperties(network) ?: return null
+        return link.linkAddresses
+            .map { it.address }
+            .firstOrNull { !it.isLoopbackAddress }
     }
 
     private fun publishFound() {
@@ -280,6 +282,8 @@ class DiscoveryService(context: Context) {
     }
 
     private companion object {
-        const val SERVICE_TYPE = "_church-comms._tcp."
+        const val TAG = "ChurchCommsDiscovery"
+        const val SERVICE_TYPE = "_church-comms._tcp.local."
+        const val RESOLVE_TIMEOUT_MS = 5000L
     }
 }

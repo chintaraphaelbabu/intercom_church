@@ -48,4 +48,16 @@ class DiscoveredServerTest {
         assertEquals("ws://192.168.1.20:7880", withLivekit.livekitUrl)
         assertNull(server(txt = emptyMap()).protocolVersion)
     }
+
+    @Test
+    fun `livekit url uses the same interface as the control connection`() {
+        val withLivekit = server(
+            host = "192.168.137.1",
+            txt = mapOf(
+                "livekit" to "ws://192.168.1.20:7880",
+            ),
+        )
+
+        assertEquals("ws://192.168.137.1:7880", withLivekit.livekitUrl)
+    }
 }

@@ -1,5 +1,7 @@
 package com.churchcomms.operator.discovery
 
+import java.net.URI
+
 /**
  * One `_church-comms._tcp.local` advertisement after mDNS resolution.
  *
@@ -31,5 +33,17 @@ data class DiscoveredServer(
         get() = txt["proto"]?.toIntOrNull()
 
     val livekitUrl: String?
-        get() = txt["livekit"]?.takeIf { it.isNotBlank() }
+        get() {
+            val advertised = txt["livekit"]?.takeIf { it.isNotBlank() } ?: return null
+            val uri = runCatching { URI(advertised) }.getOrNull() ?: return advertised
+            val port = if (uri.port > 0) uri.port else 7880
+            val formattedHost = when {
+                host.startsWith("[") -> host
+                host.contains(':') -> "[$host]"
+                else -> host
+            }
+            val path = uri.rawPath.orEmpty()
+            val query = uri.rawQuery?.let { "?$it" }.orEmpty()
+            return "${uri.scheme ?: "ws"}://$formattedHost:$port$path$query"
+        }
 }

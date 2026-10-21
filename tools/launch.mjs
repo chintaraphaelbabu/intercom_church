@@ -23,6 +23,7 @@ import path from "node:path";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { fileURLToPath } from "node:url";
+import { startWatchdog } from "./launcher-processes.mjs";
 
 const LIVEKIT_VERSION = "1.13.10";
 const LIVEKIT_ZIP = `livekit_${LIVEKIT_VERSION}_windows_amd64.zip`;
@@ -254,6 +255,8 @@ async function main() {
       shutdown(code ?? 1);
     }
   });
+
+  startWatchdog(children, log);
 
   await waitForHttp(controlUrl, 30_000);
   if (process.env.CHURCH_COMMS_NO_BROWSER === "1") {

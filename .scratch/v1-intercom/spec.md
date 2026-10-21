@@ -34,4 +34,4 @@ If this file and the design disagree, the design wins.
 
 ## Frontier
 
-Start with 01. After it lands, 02 is the only unblocked ticket. 03 and 04 can then proceed independently; everything else follows the table.
+01 is resolved (walking skeleton verified on the available SM-T295). 02 is the only unblocked ticket. 03 and 04 can then proceed independently; everything else follows the table.

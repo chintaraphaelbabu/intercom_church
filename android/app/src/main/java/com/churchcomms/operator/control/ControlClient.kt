@@ -37,7 +37,7 @@ class ControlClient(
     private val appVersion: String,
     private val clientName: String,
     private val clientType: String = "operator",
-    private val httpClient: OkHttpClient = OkHttpClient(),
+    private val webSocketFactory: WebSocket.Factory = OkHttpClient(),
 ) {
     private val _state = MutableStateFlow<ControlState>(ControlState.Disconnected)
     val state: StateFlow<ControlState> = _state.asStateFlow()
@@ -61,7 +61,7 @@ class ControlClient(
             return
         }
 
-        socket = httpClient.newWebSocket(request, Listener())
+        socket = webSocketFactory.newWebSocket(request, Listener())
     }
 
     fun disconnect() {
