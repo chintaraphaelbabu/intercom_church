@@ -40,6 +40,21 @@ interface OperatorRoom {
     fun setEventListener(listener: (MediaRoomEvent) -> Unit)
 }
 
+interface MediaController {
+    val state: StateFlow<MediaState>
+
+    suspend fun connect(
+        tokenUrl: String,
+        preferredLivekitUrl: String?,
+        name: String,
+    )
+
+    /** Join with LiveKit credentials already issued by `joined`. */
+    suspend fun connectDirect(url: String, token: String)
+
+    fun disconnect()
+}
+
 /**
  * Owns the Operator's LiveKit connection and publishes the state the UI shows:
  * WEBRTC_CONNECTING, READY, or MEDIA_FAILED. The control connection is owned by
@@ -48,15 +63,16 @@ interface OperatorRoom {
 class OperatorMedia(
     private val tokenClient: MediaTokenClient,
     private val createRoom: () -> OperatorRoom,
-) {
+) : MediaController {
     private val _state = MutableStateFlow<MediaState>(MediaState.Idle)
-    val state: StateFlow<MediaState> = _state.asStateFlow()
+    override val state: StateFlow<MediaState>
+        get() = _state.asStateFlow()
 
     private var room: OperatorRoom? = null
     private var directorAudioSubscribed = false
     private var connectionGeneration = 0
 
-    suspend fun connect(
+    override suspend fun connect(
         tokenUrl: String,
         preferredLivekitUrl: String?,
         name: String,
@@ -79,15 +95,27 @@ class OperatorMedia(
             return
         }
 
+        attach(
+            generation = generation,
+            url = preferredLivekitUrl?.takeIf { it.isNotBlank() } ?: token.url,
+            token = token.token,
+        )
+    }
+
+    override suspend fun connectDirect(url: String, token: String) {
+        disconnect()
+        val generation = connectionGeneration
+        _state.value = MediaState.WebRtcConnecting
+        attach(generation = generation, url = url, token = token)
+    }
+
+    private suspend fun attach(generation: Int, url: String, token: String) {
         val mediaRoom = createRoom()
         room = mediaRoom
         mediaRoom.setEventListener { event -> handle(generation, event) }
 
         try {
-            mediaRoom.connect(
-                url = preferredLivekitUrl?.takeIf { it.isNotBlank() } ?: token.url,
-                token = token.token,
-            )
+            mediaRoom.connect(url = url, token = token)
             if (generation != connectionGeneration) {
                 if (room === mediaRoom) {
                     room = null
@@ -107,7 +135,7 @@ class OperatorMedia(
         }
     }
 
-    fun disconnect() {
+    override fun disconnect() {
         connectionGeneration += 1
         room?.disconnect()
         room = null
