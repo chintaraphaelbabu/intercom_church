@@ -1,5 +1,5 @@
 import type http from "node:http";
-import { AccessToken } from "livekit-server-sdk";
+import { AccessToken, TrackSource } from "livekit-server-sdk";
 import {
   normalizeRoomName,
   validateRoomName,
@@ -136,7 +136,12 @@ export async function mintLiveKitCredentials(
     room: input.room,
     roomJoin: true,
     roomCreate: true,
-    canPublish: input.role === "director",
+    // Operators now hold push-to-talk. Restrict what they may publish to the
+    // microphone so the grant cannot be used for camera or screen share.
+    canPublish: true,
+    ...(input.role === "operator"
+      ? { canPublishSources: [TrackSource.MICROPHONE] }
+      : {}),
     canSubscribe: true,
     canPublishData: false,
   });
