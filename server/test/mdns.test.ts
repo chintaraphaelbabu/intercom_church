@@ -1,6 +1,11 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { Bonjour } from "bonjour-service";
-import { advertise, type MdnsAdvertisement } from "../src/mdns.js";
+import {
+  advertise,
+  livekitUrlForAddress,
+  mdnsAddresses,
+  type MdnsAdvertisement,
+} from "../src/mdns.js";
 import type { Logger } from "../src/logger.js";
 
 const logger: Logger = {
@@ -10,6 +15,28 @@ const logger: Logger = {
 };
 
 const runMdns = process.env.RUN_MDNS_TEST === "1";
+
+describe("mDNS interface selection", () => {
+  it("keeps every reachable IPv4 address, once", () => {
+    expect(
+      mdnsAddresses([
+        "192.168.1.2",
+        "192.168.137.1",
+        "192.168.1.2",
+        "169.254.10.20",
+        "127.0.0.1",
+        "fe80::1",
+      ]),
+    ).toEqual(["192.168.1.2", "192.168.137.1"]);
+  });
+
+  it("points LiveKit at the same interface the phone discovered", () => {
+    expect(
+      livekitUrlForAddress("ws://192.168.1.2:7880", "192.168.137.1"),
+    ).toBe("ws://192.168.137.1:7880");
+    expect(livekitUrlForAddress("not a url", "192.168.137.1")).toBe("not a url");
+  });
+});
 
 describe.skipIf(!runMdns)("mDNS advertisement", () => {
   let advertisement: MdnsAdvertisement | undefined;
