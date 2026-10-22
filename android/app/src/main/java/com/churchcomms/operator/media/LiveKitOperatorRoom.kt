@@ -6,12 +6,16 @@ import io.livekit.android.LiveKit
 import io.livekit.android.events.RoomEvent
 import io.livekit.android.events.collect
 import io.livekit.android.room.Room
+import io.livekit.android.room.track.LocalAudioTrack
+import io.livekit.android.room.track.LocalAudioTrackOptions
 import io.livekit.android.room.track.Track
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 private const val TAG = "ChurchComms.Audio"
 
@@ -26,6 +30,8 @@ class LiveKitOperatorRoom(private val context: Context) : OperatorRoom {
     private var room: Room? = null
     private var scope: CoroutineScope? = null
     private var listener: ((MediaRoomEvent) -> Unit)? = null
+    private var localAudioTrack: LocalAudioTrack? = null
+    private val microphoneMutex = Mutex()
 
     override fun setEventListener(listener: (MediaRoomEvent) -> Unit) {
         this.listener = listener
@@ -34,6 +40,12 @@ class LiveKitOperatorRoom(private val context: Context) : OperatorRoom {
     override suspend fun connect(url: String, token: String) {
         val room = LiveKit.create(context)
         this.room = room
+        // docs/design.md §10: speech-tuned capture, enabled once for the room.
+        room.localParticipant.audioTrackCaptureDefaults = LocalAudioTrackOptions(
+            noiseSuppression = true,
+            echoCancellation = true,
+            autoGainControl = true,
+        )
 
         room.audioSwitchHandler?.registerAudioDeviceChangeListener { _, selected ->
             val route = selected?.name ?: "No audio route"
@@ -47,6 +59,13 @@ class LiveKitOperatorRoom(private val context: Context) : OperatorRoom {
             room.events.collect { event ->
                 when (event) {
                     is RoomEvent.Connected -> {
+                        // Publish once, muted, before the UI can enable PTT, so
+                        // the first press only flips the existing track.
+                        runCatching {
+                            microphoneMutex.withLock { publishMicrophone(room) }
+                        }.onFailure { error ->
+                            Log.w(TAG, "Could not pre-publish the microphone", error)
+                        }
                         listener?.invoke(
                             MediaRoomEvent.Connected(routeName(room)),
                         )
@@ -73,12 +92,16 @@ class LiveKitOperatorRoom(private val context: Context) : OperatorRoom {
                     }
 
                     is RoomEvent.Disconnected -> {
+                        localAudioTrack?.stop()
+                        localAudioTrack = null
                         listener?.invoke(
                             MediaRoomEvent.Disconnected(event.reason.name),
                         )
                     }
 
                     is RoomEvent.FailedToConnect -> {
+                        localAudioTrack?.stop()
+                        localAudioTrack = null
                         listener?.invoke(
                             MediaRoomEvent.Disconnected(
                                 event.error.message ?: "LiveKit failed to connect",
@@ -96,9 +119,45 @@ class LiveKitOperatorRoom(private val context: Context) : OperatorRoom {
         Log.i(TAG, "LiveKit connected at $url")
     }
 
+    override suspend fun setMicrophoneTransmitting(transmitting: Boolean) {
+        microphoneMutex.withLock {
+            val room = room ?: throw IllegalStateException("LiveKit is not connected.")
+            if (!transmitting) {
+                // Already-published track: disabling it mutes capture without a
+                // renegotiation or a new publication.
+                localAudioTrack?.enabled = false
+                return@withLock
+            }
+
+            val track = localAudioTrack ?: publishMicrophone(room)
+            track.enabled = true
+        }
+    }
+
+    private suspend fun publishMicrophone(room: Room): LocalAudioTrack {
+        val track = room.localParticipant.getOrCreateDefaultAudioTrack()
+        // Publish muted, then unmute only for the press that asked to talk.
+        track.enabled = false
+        val published = try {
+            room.localParticipant.publishAudioTrack(track)
+        } catch (error: Exception) {
+            track.enabled = false
+            throw error
+        }
+        if (!published) {
+            track.enabled = false
+            throw IllegalStateException("LiveKit rejected the microphone track.")
+        }
+        localAudioTrack = track
+        Log.i(TAG, "Published the Operator microphone")
+        return track
+    }
+
     override fun disconnect() {
         scope?.cancel()
         scope = null
+        localAudioTrack?.stop()
+        localAudioTrack = null
         room?.disconnect()
         room = null
         Log.i(TAG, "LiveKit disconnected")

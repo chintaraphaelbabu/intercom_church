@@ -224,6 +224,95 @@ class SessionControllerTest {
     }
 
     @Test
+    fun `press transmits through ready media and release stops it`() = runTest {
+        val media = FakeMedia()
+        val control = FakeControl()
+        val controller = controller(FakeDiscovery(), control, media, FakeService(), this)
+        control.state.value = joined()
+        media.state.value = ready()
+        advanceUntilIdle()
+
+        controller.pressPtt()
+        advanceUntilIdle()
+        assertEquals(listOf(true), media.transmissions)
+        assertTrue(controller.state.value.transmitting)
+
+        controller.releasePtt()
+        advanceUntilIdle()
+        assertEquals(listOf(true, false), media.transmissions)
+        assertFalse(controller.state.value.transmitting)
+    }
+
+    @Test
+    fun `a fresh press while force-muted clears mute then transmits`() = runTest {
+        val media = FakeMedia()
+        val control = FakeControl()
+        val controller = controller(FakeDiscovery(), control, media, FakeService(), this)
+        control.state.value = joined(muted = true)
+        media.state.value = ready()
+        advanceUntilIdle()
+
+        controller.pressPtt()
+        advanceUntilIdle()
+
+        assertEquals(1, control.clearMuteCalls)
+        assertEquals(listOf(true), media.transmissions)
+        assertTrue(controller.state.value.transmitting)
+    }
+
+    @Test
+    fun `press does not transmit while media is still connecting`() = runTest {
+        val media = FakeMedia()
+        val control = FakeControl()
+        val controller = controller(FakeDiscovery(), control, media, FakeService(), this)
+        control.state.value = joined()
+        media.state.value = MediaState.WebRtcConnecting
+        advanceUntilIdle()
+
+        controller.pressPtt()
+        advanceUntilIdle()
+
+        assertTrue(media.transmissions.isEmpty())
+        assertFalse(controller.state.value.transmitting)
+    }
+
+    @Test
+    fun `leaving stops transmission`() = runTest {
+        val media = FakeMedia()
+        val control = FakeControl()
+        val controller = controller(FakeDiscovery(), control, media, FakeService(), this)
+        control.state.value = joined()
+        media.state.value = ready()
+        advanceUntilIdle()
+        controller.pressPtt()
+        advanceUntilIdle()
+
+        controller.leave()
+        advanceUntilIdle()
+
+        assertFalse(controller.state.value.transmitting)
+        assertEquals(1, media.disconnectCalls)
+    }
+
+    @Test
+    fun `media failure stops transmission`() = runTest {
+        val media = FakeMedia()
+        val control = FakeControl()
+        val controller = controller(FakeDiscovery(), control, media, FakeService(), this)
+        control.state.value = joined()
+        media.state.value = ready()
+        advanceUntilIdle()
+        controller.pressPtt()
+        advanceUntilIdle()
+        assertTrue(controller.state.value.transmitting)
+
+        media.state.value = MediaState.Failed("LiveKit connection closed")
+        advanceUntilIdle()
+
+        assertFalse(controller.state.value.transmitting)
+    }
+
+    @Test
     fun `debug connection does not start the room service`() = runTest {
         val service = FakeService()
         val control = FakeControl()
@@ -276,7 +365,12 @@ class SessionControllerTest {
         notice = notice,
     )
 
-    private fun joined(): ControlState.Joined = ControlState.Joined(
+    private fun ready() = MediaState.Ready(
+        outputRoute = "Wired Headset",
+        directorAudio = true,
+    )
+
+    private fun joined(muted: Boolean = false): ControlState.Joined = ControlState.Joined(
         participantId = "participant-1",
         sessionToken = "session-1",
         room = RoomSnapshot(
@@ -299,7 +393,7 @@ class SessionControllerTest {
                     role = "operator",
                     cameraNumber = 1,
                     connectionState = "connected",
-                    muted = false,
+                    muted = muted,
                     joinedAt = "2026-10-22T09:56:00.000Z",
                 ),
             ),
@@ -347,6 +441,7 @@ class SessionControllerTest {
         var disconnectCalls = 0
         var retryCalls = 0
         val joins = mutableListOf<JoinCall>()
+        var clearMuteCalls = 0
 
         override fun connect(server: DiscoveredServer) {
             connectedTo = server
@@ -389,12 +484,15 @@ class SessionControllerTest {
 
         override fun setMute(participantId: String, muted: Boolean) = Unit
 
-        override fun clearMute() = Unit
+        override fun clearMute() {
+            clearMuteCalls += 1
+        }
     }
 
     private class FakeMedia : MediaController {
         override val state = MutableStateFlow<MediaState>(MediaState.Idle)
         val directConnects = mutableListOf<Pair<String, String>>()
+        val transmissions = mutableListOf<Boolean>()
         var disconnectCalls = 0
 
         override suspend fun connect(
@@ -410,6 +508,14 @@ class SessionControllerTest {
         override fun disconnect() {
             disconnectCalls += 1
             state.value = MediaState.Idle
+        }
+
+        override suspend fun setMicrophoneTransmitting(transmitting: Boolean) {
+            transmissions += transmitting
+            val current = state.value
+            if (current is MediaState.Ready) {
+                state.value = current.copy(transmitting = transmitting)
+            }
         }
     }
 

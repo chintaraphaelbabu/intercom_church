@@ -190,6 +190,52 @@ class OperatorMediaTest {
         assertEquals(MediaState.WebRtcConnecting, media.state.value)
     }
 
+    @Test
+    fun `publishes the microphone once and reports real transmitting state`() = runTest {
+        val room = FakeRoom()
+        val media = OperatorMedia(
+            tokenClient = FakeTokenClient(),
+            createRoom = { room },
+        )
+        media.connectDirect(url = "ws://192.168.137.1:7880", token = "join-token")
+        room.emit(MediaRoomEvent.Connected("Wired Headset"))
+        room.emit(MediaRoomEvent.DirectorAudioSubscribed("Director"))
+
+        media.setMicrophoneTransmitting(true)
+        assertEquals(
+            MediaState.Ready(
+                outputRoute = "Wired Headset",
+                directorAudio = true,
+                transmitting = true,
+            ),
+            media.state.value,
+        )
+
+        media.setMicrophoneTransmitting(false)
+        assertEquals(false, (media.state.value as MediaState.Ready).transmitting)
+        assertEquals(1, room.publishCalls)
+        assertEquals(listOf(true, false), room.trackStates)
+    }
+
+    @Test
+    fun `a microphone publish failure surfaces MEDIA_FAILED and stops transmitting`() = runTest {
+        val room = FakeRoom().apply {
+            transmitError = IllegalStateException("microphone permission denied")
+        }
+        val media = OperatorMedia(
+            tokenClient = FakeTokenClient(),
+            createRoom = { room },
+        )
+        media.connectDirect(url = "ws://192.168.137.1:7880", token = "join-token")
+        room.emit(MediaRoomEvent.Connected("Wired Headset"))
+
+        val failure = runCatching { media.setMicrophoneTransmitting(true) }.exceptionOrNull()
+
+        assertEquals("microphone permission denied", failure?.message)
+        val state = media.state.value as MediaState.Failed
+        assertEquals("Microphone unavailable: microphone permission denied", state.message)
+    }
+
     private class FakeTokenClient : MediaTokenClient {
         override suspend fun fetch(tokenUrl: String, name: String): MediaToken =
             MediaToken(url = "ws://192.168.1.2:7880", token = "join-token")
@@ -200,17 +246,33 @@ class OperatorMediaTest {
         var connectedUrl: String? = null
         var connectedToken: String? = null
         var connectError: Exception? = null
+        var transmitError: Exception? = null
+        var publishCalls = 0
+        val trackStates = mutableListOf<Boolean>()
+        private var published = false
 
         override suspend fun connect(url: String, token: String) {
             connectError?.let { throw it }
             connectedUrl = url
             connectedToken = token
+            // The real room publishes the microphone muted on connect.
+            published = true
+            publishCalls += 1
         }
 
         override fun disconnect() = Unit
 
         override fun setEventListener(listener: (MediaRoomEvent) -> Unit) {
             this.listener = listener
+        }
+
+        override suspend fun setMicrophoneTransmitting(transmitting: Boolean) {
+            transmitError?.let { throw it }
+            if (transmitting && !published) {
+                published = true
+                publishCalls += 1
+            }
+            trackStates += transmitting
         }
 
         fun emit(event: MediaRoomEvent) {

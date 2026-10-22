@@ -11,6 +11,8 @@ sealed interface MediaState {
     data class Ready(
         val outputRoute: String,
         val directorAudio: Boolean,
+        /** True only while the published microphone track is actually unmuted. */
+        val transmitting: Boolean = false,
     ) : MediaState
 
     data class Failed(val message: String) : MediaState
@@ -38,6 +40,12 @@ interface OperatorRoom {
     suspend fun connect(url: String, token: String)
     fun disconnect()
     fun setEventListener(listener: (MediaRoomEvent) -> Unit)
+
+    /**
+     * Publish the microphone once, then mute or unmute that same track.
+     * Implementations must not renegotiate or republish on later calls.
+     */
+    suspend fun setMicrophoneTransmitting(transmitting: Boolean)
 }
 
 interface MediaController {
@@ -53,6 +61,13 @@ interface MediaController {
     suspend fun connectDirect(url: String, token: String)
 
     fun disconnect()
+
+    /**
+     * Toggle transmission on the already-published microphone track. Throws
+     * when media is not ready or the track cannot change state, after moving
+     * the state to MEDIA_FAILED.
+     */
+    suspend fun setMicrophoneTransmitting(transmitting: Boolean)
 }
 
 /**
@@ -141,6 +156,31 @@ class OperatorMedia(
         room = null
         directorAudioSubscribed = false
         _state.value = MediaState.Idle
+    }
+
+    override suspend fun setMicrophoneTransmitting(transmitting: Boolean) {
+        if (_state.value !is MediaState.Ready) {
+            throw IllegalStateException("LiveKit media is not ready.")
+        }
+        val mediaRoom = room ?: throw IllegalStateException("LiveKit is not connected.")
+        val generation = connectionGeneration
+        try {
+            mediaRoom.setMicrophoneTransmitting(transmitting)
+        } catch (error: Exception) {
+            if (generation == connectionGeneration && room === mediaRoom) {
+                _state.value = MediaState.Failed(
+                    "Microphone unavailable: ${error.readableMessage()}",
+                )
+            }
+            throw error
+        }
+        if (generation != connectionGeneration || room !== mediaRoom) {
+            return
+        }
+        val current = _state.value
+        if (current is MediaState.Ready) {
+            _state.value = current.copy(transmitting = transmitting)
+        }
     }
 
     private fun handle(generation: Int, event: MediaRoomEvent) {

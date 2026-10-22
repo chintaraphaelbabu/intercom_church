@@ -45,6 +45,8 @@ class MainActivity : ComponentActivity() {
                         clearMute = session::clearMute,
                         setDisplayName = session::setDisplayName,
                         joinRoom = { room, camera -> session.joinRoom(room, cameraNumber = camera) },
+                        pressPtt = session::pressPtt,
+                        releasePtt = session::releasePtt,
                     ),
                     onRequestNotificationPermission = ::requestNotificationPermission,
                 )

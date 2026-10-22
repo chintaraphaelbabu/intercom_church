@@ -110,9 +110,10 @@ describe("LiveKit token endpoint", () => {
         canPublish: true,
       },
     });
+    expect((claims.video as Record<string, unknown>).canPublishSources).toBeUndefined();
   });
 
-  it("mints an Operator a subscribe-only token for their room", async () => {
+  it("mints an Operator a token that publishes only their microphone", async () => {
     const server = await startServer();
     await createRoom(server, "MEDIA");
     const { joined } = await joinOperator(server, "MEDIA", "Camera 1", 1);
@@ -133,7 +134,8 @@ describe("LiveKit token endpoint", () => {
         room: "MEDIA",
         roomJoin: true,
         canSubscribe: true,
-        canPublish: false,
+        canPublish: true,
+        canPublishSources: ["microphone"],
       },
     });
   });

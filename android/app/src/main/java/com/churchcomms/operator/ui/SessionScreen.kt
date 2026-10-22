@@ -111,6 +111,8 @@ fun SessionScreen(
             is ControlState.Joined -> {
                 JoinedContent(control)
                 Spacer(Modifier.height(16.dp))
+                TalkPanel(control = control, state = state, actions = actions)
+                Spacer(Modifier.height(16.dp))
                 DirectorAudioPanel(
                     state = state.media,
                     onJoinAudio = actions.joinDirectorAudio,
@@ -188,6 +190,61 @@ private fun JoinedContent(control: ControlState.Joined) {
     if (me?.muted == true) {
         Spacer(Modifier.height(12.dp))
         MuteBanner()
+    }
+}
+
+@Composable
+private fun TalkPanel(
+    control: ControlState.Joined,
+    state: SessionState,
+    actions: OperatorActions,
+) {
+    val me = control.room.operators.firstOrNull { it.id == control.participantId }
+    val ready = state.media is MediaState.Ready
+    val forceMuted = me?.muted == true
+    val chipLabel = when {
+        state.transmitting -> "TRANSMITTING"
+        ready -> "listening"
+        else -> "mic not ready"
+    }
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(14.dp),
+    ) {
+        Column(Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = "Push to talk",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Chip(chipLabel, accent = state.transmitting || (ready && !forceMuted))
+            }
+            Spacer(Modifier.height(12.dp))
+            PttButton(
+                transmitting = state.transmitting,
+                enabled = ready,
+                onPress = actions.pressPtt,
+                onRelease = actions.releasePtt,
+            )
+            Spacer(Modifier.height(10.dp))
+            Text(
+                text = when {
+                    forceMuted -> "Holding PTT takes the mic back from the Director."
+                    state.transmitting -> "The Director and the room hear you now."
+                    ready -> "Hold while you speak. Release to listen."
+                    else -> "PTT is available once LiveKit audio is ready."
+                },
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
     }
 }
 
