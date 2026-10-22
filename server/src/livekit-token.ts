@@ -1,16 +1,25 @@
 import type http from "node:http";
 import { AccessToken } from "livekit-server-sdk";
+import {
+  normalizeRoomName,
+  validateRoomName,
+  type LiveKitCredentials,
+  type ParticipantRole,
+} from "@church-comms/protocol";
 import type { ResolvedConfig } from "./config.js";
 
 const TOKEN_PATH = "/api/livekit-token";
 const MAX_BODY_BYTES = 16 * 1024;
 
-export type MediaRole = "director" | "operator";
+export const LIVEKIT_TOKEN_TTL_MS = 2 * 60 * 60 * 1000;
+
+export type MediaRole = ParticipantRole;
 
 export interface LiveKitTokenResponse {
   url: string;
   room: string;
   token: string;
+  expiresAt: string;
 }
 
 export interface TokenHandlerConfig {
@@ -20,10 +29,27 @@ export interface TokenHandlerConfig {
   livekitRoom: string;
 }
 
+export interface TokenIdentity {
+  room: string;
+  role: MediaRole;
+}
+
+export interface LiveKitTokenHandlerOptions {
+  /**
+   * Registry lookup. When present, every requested identity must resolve to a
+   * participant and the token is scoped to that participant's room and role.
+   * The resolver is required in production; leaving it out keeps the handler
+   * usable in isolation (for example a unit test) with an explicit room.
+   */
+  resolveIdentity?: (identity: string) => TokenIdentity | undefined;
+  now?: () => Date;
+}
+
 interface TokenRequest {
   identity: string;
   name: string;
   role: MediaRole;
+  room?: string;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -47,11 +73,19 @@ function parseTokenRequest(value: unknown): TokenRequest | string {
   if (value.role !== "director" && value.role !== "operator") {
     return 'role must be "director" or "operator".';
   }
-  return {
+  if (value.room !== undefined && !validateRoomName(value.room)) {
+    return "room must be 1-24 characters when present.";
+  }
+
+  const request: TokenRequest = {
     identity: value.identity.trim(),
     name: value.name.trim(),
     role: value.role,
   };
+  if (typeof value.room === "string") {
+    request.room = normalizeRoomName(value.room);
+  }
+  return request;
 }
 
 async function readBody(request: http.IncomingMessage): Promise<string> {
@@ -82,16 +116,53 @@ function sendJson(
   response.end(JSON.stringify(body));
 }
 
+/** Mint the LiveKit credentials handed to a participant in `joined`. */
+export async function mintLiveKitCredentials(
+  config: Pick<ResolvedConfig, "livekitUrl" | "livekitApiKey" | "livekitApiSecret">,
+  input: {
+    identity: string;
+    name: string;
+    role: MediaRole;
+    room: string;
+    now?: Date;
+  },
+): Promise<LiveKitCredentials> {
+  const token = new AccessToken(config.livekitApiKey, config.livekitApiSecret, {
+    identity: input.identity,
+    name: input.name,
+    ttl: "2h",
+  });
+  token.addGrant({
+    room: input.room,
+    roomJoin: true,
+    roomCreate: true,
+    canPublish: input.role === "director",
+    canSubscribe: true,
+    canPublishData: false,
+  });
+
+  const now = input.now ?? new Date();
+  return {
+    url: config.livekitUrl,
+    room: input.room,
+    token: await token.toJwt(),
+    expiresAt: new Date(now.getTime() + LIVEKIT_TOKEN_TTL_MS).toISOString(),
+  };
+}
+
 /**
- * Mint a LiveKit join token for the single M1 room. The control server owns the
- * API secret; browsers and phones never see it.
+ * Mint LiveKit join tokens. The control server owns the API secret; browsers
+ * and phones never see it. The token is scoped to the participant's named room.
  */
 export function createLiveKitTokenHandler(
   config: Pick<
     ResolvedConfig,
     "livekitUrl" | "livekitApiKey" | "livekitApiSecret" | "livekitRoom"
   >,
+  options: LiveKitTokenHandlerOptions = {},
 ): (request: http.IncomingMessage, response: http.ServerResponse) => Promise<boolean> {
+  const now = options.now ?? (() => new Date());
+
   return async (request, response) => {
     let pathname = "";
     try {
@@ -123,24 +194,45 @@ export function createLiveKitTokenHandler(
       return true;
     }
 
-    const token = new AccessToken(config.livekitApiKey, config.livekitApiSecret, {
+    let room: string;
+    const resolved = options.resolveIdentity?.(parsed.identity);
+    if (resolved !== undefined) {
+      const requestedRoom =
+        parsed.room === undefined ? resolved.room : normalizeRoomName(parsed.room);
+      if (requestedRoom.toLowerCase() !== resolved.room.toLowerCase()) {
+        sendJson(response, 403, {
+          error: `Identity "${parsed.identity}" is not a participant in room "${requestedRoom}".`,
+        });
+        return true;
+      }
+      if (resolved.role !== parsed.role) {
+        sendJson(response, 403, {
+          error: `Identity "${parsed.identity}" is a ${resolved.role}, not a ${parsed.role}.`,
+        });
+        return true;
+      }
+      room = resolved.room;
+    } else if (options.resolveIdentity !== undefined) {
+      sendJson(response, 403, {
+        error: `Identity "${parsed.identity}" is not a participant in a live room.`,
+      });
+      return true;
+    } else {
+      room = parsed.room ?? normalizeRoomName(config.livekitRoom);
+    }
+
+    const credentials = await mintLiveKitCredentials(config, {
       identity: parsed.identity,
       name: parsed.name,
-      ttl: "2h",
+      role: parsed.role,
+      room,
+      now: now(),
     });
-    token.addGrant({
-      room: config.livekitRoom,
-      roomJoin: true,
-      roomCreate: true,
-      canPublish: parsed.role === "director",
-      canSubscribe: true,
-      canPublishData: false,
-    });
-
     const responseBody: LiveKitTokenResponse = {
-      url: config.livekitUrl,
-      room: config.livekitRoom,
-      token: await token.toJwt(),
+      url: credentials.url,
+      room: credentials.room,
+      token: credentials.token,
+      expiresAt: credentials.expiresAt,
     };
     sendJson(response, 200, responseBody);
     return true;
