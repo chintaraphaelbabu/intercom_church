@@ -47,6 +47,8 @@ sealed interface ControlState {
         val rooms: List<RoomSummary> = emptyList(),
         val roster: List<RosterClient> = emptyList(),
         val health: ServerHealthMessage? = null,
+        /** A one-off message shown on the join screen, e.g. a room closure. */
+        val notice: String? = null,
     ) : ControlState
 
     data class Joined(
@@ -124,6 +126,7 @@ class ControlClient(
     private var reconnectAttempt = 0
     private var reconnectJob: Job? = null
     private var clearMuteOnNextJoin = false
+    private var lastServerInfo: ServerInfoMessage? = null
 
     override fun connect(server: DiscoveredServer) {
         manuallyClosed = false
@@ -183,7 +186,10 @@ class ControlClient(
 
     override fun leaveRoom() {
         send(Protocol.leaveRoom())
-        disconnect()
+        tokenStore.clear()
+        reconnectAttempt = 0
+        clearMuteOnNextJoin = false
+        transitionToLobby()
     }
 
     override fun endRoom() {
@@ -310,6 +316,7 @@ class ControlClient(
             val message = Protocol.parseServerMessage(text) ?: return
             when (message) {
                 is ServerInfoMessage -> {
+                    lastServerInfo = message
                     val current = _state.value
                     _state.value = when (current) {
                         is ControlState.Connected -> current.copy(serverInfo = message)
@@ -390,7 +397,9 @@ class ControlClient(
 
                 is RoomClosedMessage -> {
                     tokenStore.clear()
-                    fail(roomClosedMessage(message.reason), canRetry = false)
+                    reconnectAttempt = 0
+                    clearMuteOnNextJoin = false
+                    transitionToLobby(roomClosedMessage(message.reason))
                 }
 
                 is ServerHealthMessage -> {
@@ -449,6 +458,23 @@ class ControlClient(
             }
             scheduleReconnect("Disconnected from the control server. Retrying...")
         }
+    }
+
+    private fun transitionToLobby(notice: String? = null) {
+        val current = _state.value
+        val serverInfo = lastServerInfo
+            ?: (current as? ControlState.Joined)?.serverInfo
+            ?: (current as? ControlState.Connected)?.serverInfo
+            ?: return
+        _state.value = ControlState.Connected(
+            serverInfo = serverInfo,
+            rooms = (current as? ControlState.Connected)?.rooms ?: emptyList(),
+            roster = (current as? ControlState.Connected)?.roster
+                ?: (current as? ControlState.Joined)?.roster.orEmpty(),
+            health = (current as? ControlState.Connected)?.health
+                ?: (current as? ControlState.Joined)?.health,
+            notice = notice,
+        )
     }
 
     private fun withClearedMuteOnResume(
