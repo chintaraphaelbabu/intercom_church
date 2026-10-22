@@ -34,4 +34,4 @@ If this file and the design disagree, the design wins.
 
 ## Frontier
 
-01 and 02 are resolved (02's functional acceptance is verified on the available SM-T295; its acoustic latency target remains a documented residual). 03 and 04 are now unblocked and can proceed independently; everything else follows the table.
+01, 02, 04, and 06 are resolved (02's and 04's acoustic latency targets remain documented residuals). 03 and 07 are now unblocked and can proceed independently; 05 and 08–11 follow once 03 and 07 are resolved, then 12/13, 14, and 15.
