@@ -161,7 +161,11 @@ export class DirectorMedia {
     await this.ensureConnected(credentials);
   }
 
-  async setOpenMic(enabled: boolean): Promise<void> {
+  async setOpenMic(
+    enabled: boolean,
+    /** Credentials from the server's `joined` message for the named room. */
+    credentials?: DirectorMediaToken,
+  ): Promise<void> {
     this.openMicRequested = enabled;
     if (!enabled) {
       await this.mutePublishedMicrophone(true);
@@ -173,7 +177,7 @@ export class DirectorMedia {
       return;
     }
 
-    const connected = await this.ensureConnected();
+    const connected = await this.ensureConnected(credentials);
     if (!connected) {
       return;
     }

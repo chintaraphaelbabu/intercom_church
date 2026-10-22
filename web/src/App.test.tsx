@@ -11,7 +11,7 @@ import {
   DIRECTOR_SESSION_STORAGE_KEY,
   type SessionStorage,
 } from "./connection";
-import type { DirectorMediaState } from "./media";
+import type { DirectorMediaState, DirectorMediaToken } from "./media";
 
 class FakeWebSocket {
   static instances: FakeWebSocket[] = [];
@@ -95,6 +95,7 @@ class FakeDirectorMedia implements DirectorMediaControls {
     outputRoute: "Default output",
   };
   private listeners = new Set<() => void>();
+  lastCredentials: DirectorMediaToken | undefined;
 
   getState = (): DirectorMediaState => this.state;
 
@@ -105,7 +106,11 @@ class FakeDirectorMedia implements DirectorMediaControls {
     };
   };
 
-  async setOpenMic(enabled: boolean): Promise<void> {
+  async setOpenMic(
+    enabled: boolean,
+    credentials?: DirectorMediaToken,
+  ): Promise<void> {
+    this.lastCredentials = credentials;
     this.state = {
       ...this.state,
       phase: enabled ? "publishing" : "ready",
@@ -392,5 +397,22 @@ describe("Director connection", () => {
     expect(
       screen.getByRole("button", { name: "Turn open mic on" }),
     ).toBeInTheDocument();
+  });
+
+  it("joins Director audio with the named room credentials", async () => {
+    const media = new FakeDirectorMedia();
+    const socket = renderDirector({ media });
+
+    act(() => {
+      socket.open();
+      socket.receive(serverInfo);
+      socket.receive(joinedRoom);
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Turn open mic on" }));
+    });
+
+    expect(media.lastCredentials).toEqual(joinedRoom.livekit);
   });
 });

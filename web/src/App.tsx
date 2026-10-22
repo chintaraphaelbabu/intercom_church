@@ -8,7 +8,11 @@ import {
 } from "@church-comms/protocol";
 import { DirectorConnection, type DirectorConnectionOptions } from "./connection";
 import { fetchDirectorToken, LiveKitDirectorRoom } from "./livekit-room";
-import { DirectorMedia, type DirectorMediaState } from "./media";
+import {
+  DirectorMedia,
+  type DirectorMediaState,
+  type DirectorMediaToken,
+} from "./media";
 
 function mediaStatusLabel(phase: DirectorMediaState["phase"]): string {
   switch (phase) {
@@ -37,7 +41,7 @@ export interface AppProps {
 export interface DirectorMediaControls {
   getState(): DirectorMediaState;
   subscribe(listener: () => void): () => void;
-  setOpenMic(enabled: boolean): Promise<void>;
+  setOpenMic(enabled: boolean, credentials?: DirectorMediaToken): Promise<void>;
   disconnect(): Promise<void>;
 }
 
@@ -270,7 +274,9 @@ export function App({ connectionOptions, media: mediaOverride }: AppProps = {}):
         )}
         <button
           type="button"
-          onClick={() => void media.setOpenMic(!mediaState.micEnabled)}
+          onClick={() =>
+            void media.setOpenMic(!mediaState.micEnabled, state.livekit)
+          }
           disabled={mediaState.phase === "connecting"}
         >
           {mediaState.micEnabled ? "Turn open mic off" : "Turn open mic on"}
