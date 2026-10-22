@@ -7,6 +7,7 @@ import com.churchcomms.operator.discovery.DiscoverySource
 import com.churchcomms.operator.discovery.DiscoveryState
 import com.churchcomms.operator.media.MediaController
 import com.churchcomms.operator.media.MediaState
+import com.churchcomms.operator.media.PttController
 import com.churchcomms.operator.service.SessionServiceGateway
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -34,6 +35,8 @@ data class SessionState(
     val cameraNumber: Int? = null,
     val outputRoute: String? = null,
     val serviceRunning: Boolean = false,
+    /** True only while the microphone track is confirmed unmuted. */
+    val transmitting: Boolean = false,
 ) {
     val activeRoomName: String
         get() = (control as? ControlState.Joined)?.room?.name ?: roomName
@@ -74,25 +77,35 @@ class SessionController(
         JoinSelection(displayName = defaultDisplayName),
     )
     private val serviceRunning = MutableStateFlow(false)
+    private val ptt = PttController(
+        media = media,
+        scope = scope,
+        onClearMute = { control.clearMute() },
+    )
 
     val state: StateFlow<SessionState> = combine(
-        discovery.state,
-        control.state,
-        media.state,
-        selection,
-        serviceRunning,
-    ) { discoveryState, controlState, mediaState, selectionState, serviceIsRunning ->
-        SessionState(
-            discovery = discoveryState,
-            control = controlState,
-            media = mediaState,
-            selectedServer = selectionState.server,
-            roomName = selectionState.roomName,
-            displayName = selectionState.displayName,
-            cameraNumber = selectionState.cameraNumber,
-            outputRoute = (mediaState as? MediaState.Ready)?.outputRoute,
-            serviceRunning = serviceIsRunning,
-        )
+        combine(
+            discovery.state,
+            control.state,
+            media.state,
+            selection,
+            serviceRunning,
+        ) { discoveryState, controlState, mediaState, selectionState, serviceIsRunning ->
+            SessionState(
+                discovery = discoveryState,
+                control = controlState,
+                media = mediaState,
+                selectedServer = selectionState.server,
+                roomName = selectionState.roomName,
+                displayName = selectionState.displayName,
+                cameraNumber = selectionState.cameraNumber,
+                outputRoute = (mediaState as? MediaState.Ready)?.outputRoute,
+                serviceRunning = serviceIsRunning,
+            )
+        },
+        ptt.transmitting,
+    ) { sessionState, transmitting ->
+        sessionState.copy(transmitting = transmitting)
     }.stateIn(
         scope = scope,
         started = SharingStarted.Eagerly,
@@ -169,6 +182,7 @@ class SessionController(
      * foreground service, and return discovery to the join screen.
      */
     fun leave() {
+        ptt.reset()
         control.leaveRoom()
         media.disconnect()
         stopSessionService()
@@ -210,6 +224,21 @@ class SessionController(
         control.clearMute()
     }
 
+    /**
+     * PTT pointer-down. A force-muted Operator clears the room mute with this
+     * fresh press, then transmits; mute policy beyond that belongs to ticket 08.
+     */
+    fun pressPtt() {
+        val joined = control.state.value as? ControlState.Joined ?: return
+        val me = joined.room.operators.firstOrNull { it.id == joined.participantId }
+        ptt.press(forceMuted = me?.muted == true)
+    }
+
+    /** PTT pointer-up, pointer cancel, drag-out, backgrounding, or leave. */
+    fun releasePtt() {
+        ptt.release()
+    }
+
     /** Debug path kept from ticket 02: fetch a token and hear the Director. */
     fun joinDirectorAudio() {
         val server = selection.value.server ?: return
@@ -234,15 +263,17 @@ class SessionController(
                 connectMediaIfNeeded(controlState)
             }
 
-            is ControlState.Reconnecting -> Unit
+            is ControlState.Reconnecting -> ptt.reset()
 
             is ControlState.Failed -> {
+                ptt.reset()
                 stopSessionService()
                 lastLivekitToken = null
                 media.disconnect()
             }
 
             ControlState.Disconnected -> {
+                ptt.reset()
                 stopSessionService()
                 lastLivekitToken = null
             }

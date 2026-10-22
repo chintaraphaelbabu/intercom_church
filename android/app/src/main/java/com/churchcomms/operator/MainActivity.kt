@@ -43,6 +43,8 @@ class MainActivity : ComponentActivity() {
                         joinDirectorAudio = session::joinDirectorAudio,
                         leaveAudio = session::leaveAudio,
                         clearMute = session::clearMute,
+                        pressPtt = session::pressPtt,
+                        releasePtt = session::releasePtt,
                     ),
                     onRequestNotificationPermission = ::requestNotificationPermission,
                 )

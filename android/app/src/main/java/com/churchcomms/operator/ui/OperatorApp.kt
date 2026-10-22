@@ -24,6 +24,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import com.churchcomms.operator.discovery.DiscoveredServer
 import com.churchcomms.operator.protocol.Protocol
 import com.churchcomms.operator.session.SessionState
@@ -42,6 +44,8 @@ data class OperatorActions(
     val joinDirectorAudio: () -> Unit,
     val leaveAudio: () -> Unit,
     val clearMute: () -> Unit,
+    val pressPtt: () -> Unit = {},
+    val releasePtt: () -> Unit = {},
 )
 
 /**
@@ -56,6 +60,11 @@ fun OperatorApp(
     onRequestNotificationPermission: () -> Unit,
 ) {
     var screen by rememberSaveable { mutableStateOf(OperatorScreen.Join) }
+
+    // Backgrounding the app must never leave the microphone transmitting.
+    LifecycleEventEffect(Lifecycle.Event.ON_STOP) {
+        actions.releasePtt()
+    }
 
     LaunchedEffect(state.isSessionActive) {
         if (state.isSessionActive) {
