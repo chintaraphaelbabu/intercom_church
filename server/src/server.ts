@@ -106,6 +106,15 @@ export function createChurchCommsServer(
         return;
       }
 
+      if (message.type !== "hello") {
+        sendError(socket, {
+          type: "error",
+          code: "INVALID_MESSAGE",
+          message: `Send hello before ${message.type}.`,
+        });
+        return;
+      }
+
       if (message.protocol !== PROTOCOL_VERSION) {
         logger.warn(
           `Refused client "${message.name}": protocol v${message.protocol}, server speaks v${PROTOCOL_VERSION}`,

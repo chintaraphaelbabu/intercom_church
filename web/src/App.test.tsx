@@ -60,7 +60,15 @@ function renderDirector(): FakeWebSocket {
 }
 
 class FakeDirectorMedia implements DirectorMediaControls {
-  private state: DirectorMediaState = { phase: "idle", micEnabled: false };
+  private state: DirectorMediaState = {
+    phase: "idle",
+    micEnabled: false,
+    connectionState: "idle",
+    participants: [],
+    masterVolume: 100,
+    inputRoute: "Default microphone",
+    outputRoute: "Default output",
+  };
   private listeners = new Set<() => void>();
 
   getState = (): DirectorMediaState => this.state;
@@ -74,6 +82,7 @@ class FakeDirectorMedia implements DirectorMediaControls {
 
   async setOpenMic(enabled: boolean): Promise<void> {
     this.state = {
+      ...this.state,
       phase: enabled ? "publishing" : "ready",
       micEnabled: enabled,
     };
@@ -83,7 +92,12 @@ class FakeDirectorMedia implements DirectorMediaControls {
   }
 
   async disconnect(): Promise<void> {
-    this.state = { phase: "idle", micEnabled: false };
+    this.state = {
+      ...this.state,
+      phase: "idle",
+      micEnabled: false,
+      connectionState: "idle",
+    };
   }
 }
 
@@ -181,7 +195,7 @@ describe("Director app", () => {
     expect(screen.getByText("No clients connected yet.")).toBeInTheDocument();
   });
 
-  it("shows a disconnected state instead of silently going quiet", () => {
+  it("shows a reconnecting state instead of silently going quiet", () => {
     const socket = renderDirector();
     act(() => {
       socket.open();
@@ -190,7 +204,7 @@ describe("Director app", () => {
     });
 
     expect(screen.getByRole("alert")).toHaveTextContent("Disconnected");
-    expect(screen.getByTestId("connection-status")).toHaveTextContent("disconnected");
+    expect(screen.getByTestId("connection-status")).toHaveTextContent("reconnecting");
   });
 
   it("turns open mic on and off from the Director page", async () => {
