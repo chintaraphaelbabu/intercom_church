@@ -14,7 +14,7 @@
     "build:server": "npm run build --workspace @church-comms/server",
     "build": "npm run build:protocol && npm run build:web && npm run build:server",
     "test": "npm run build:protocol && npm run test:launcher && npm run test --workspaces --if-present",
-    "test:launcher": "node --test tools/launcher-watchdog.test.mjs tools/launcher-health.test.mjs",
+    "test:launcher": "node --test tools/launcher-watchdog.test.mjs tools/launcher-health.test.mjs tools/load-test.test.mjs",
     "typecheck": "npm run build:protocol && npm run typecheck --workspaces --if-present",
     "start": "npm run start --workspace @church-comms/server",
     "launch": "node tools/launch.mjs",
