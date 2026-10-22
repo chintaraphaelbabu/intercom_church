@@ -42,6 +42,8 @@ data class OperatorActions(
     val joinDirectorAudio: () -> Unit,
     val leaveAudio: () -> Unit,
     val clearMute: () -> Unit,
+    val setDisplayName: (String) -> Unit,
+    val joinRoom: (String, Int) -> Unit,
 )
 
 /**
@@ -90,7 +92,7 @@ fun OperatorApp(
                     fontWeight = FontWeight.Bold,
                 )
                 Text(
-                    text = "Protocol v${Protocol.VERSION} \u00b7 session foundation",
+                    text = "Protocol v${Protocol.VERSION} \u00b7 named rooms",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.bodySmall,
                 )

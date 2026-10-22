@@ -43,6 +43,8 @@ class MainActivity : ComponentActivity() {
                         joinDirectorAudio = session::joinDirectorAudio,
                         leaveAudio = session::leaveAudio,
                         clearMute = session::clearMute,
+                        setDisplayName = session::setDisplayName,
+                        joinRoom = { room, camera -> session.joinRoom(room, cameraNumber = camera) },
                     ),
                     onRequestNotificationPermission = ::requestNotificationPermission,
                 )
