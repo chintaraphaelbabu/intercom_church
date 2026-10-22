@@ -77,11 +77,93 @@ class ControlClientTest {
     }
 
     @Test
+    fun `room list broadcasts update the lobby before joining`() {
+        val factory = FakeWebSocketFactory()
+        val client = client(factory)
+        client.connect(server())
+        factory.listener.onOpen(factory.socket, openResponse(factory.request))
+
+        factory.listener.onMessage(factory.socket, serverInfoJson())
+        factory.listener.onMessage(factory.socket, fixture("room_list.json"))
+
+        val lobby = client.state.value as ControlState.Connected
+        assertEquals(listOf("MEDIA", "SECURITY"), lobby.rooms.map { it.name })
+        assertEquals(2, lobby.rooms.first().operatorCount)
+
+        // A later broadcast removes an ended room immediately; no polling.
+        factory.listener.onMessage(
+            factory.socket,
+            """{"type":"room_list","rooms":[]}""",
+        )
+        assertEquals(
+            emptyList<String>(),
+            (client.state.value as ControlState.Connected).rooms.map { it.name },
+        )
+    }
+
+    @Test
+    fun `leaving a room returns to the room list and clears the token`() {
+        val factory = FakeWebSocketFactory()
+        val tokens = InMemorySessionTokenStore()
+        val client = client(factory, tokens = tokens)
+        client.connect(server())
+        factory.listener.onOpen(factory.socket, openResponse(factory.request))
+        factory.listener.onMessage(factory.socket, serverInfoJson())
+        factory.listener.onMessage(factory.socket, fixture("joined.json"))
+
+        client.leaveRoom()
+
+        val lobby = client.state.value as ControlState.Connected
+        assertNull(tokens.get())
+        assertTrue(lobby.rooms.isEmpty())
+        assertTrue(
+            factory.socket.sent.any {
+                it.contains("\"type\":\"leave_room\"")
+            },
+        )
+
+        factory.listener.onMessage(
+            factory.socket,
+            """{"type":"room_list","rooms":[]}""",
+        )
+        assertEquals(
+            emptyList<String>(),
+            (client.state.value as ControlState.Connected).rooms.map { it.name },
+        )
+    }
+
+    @Test
+    fun `room closed returns to the join list with a readable reason`() {
+        val factory = FakeWebSocketFactory()
+        val tokens = InMemorySessionTokenStore()
+        val client = client(factory, tokens = tokens)
+        client.connect(server())
+        factory.listener.onOpen(factory.socket, openResponse(factory.request))
+        factory.listener.onMessage(factory.socket, serverInfoJson())
+        factory.listener.onMessage(factory.socket, fixture("joined.json"))
+
+        factory.listener.onMessage(factory.socket, fixture("room_closed.json"))
+
+        val lobby = client.state.value as ControlState.Connected
+        assertEquals("Room closed by director", lobby.notice)
+        assertNull(tokens.get())
+
+        factory.listener.onMessage(
+            factory.socket,
+            """{"type":"room_list","rooms":[]}""",
+        )
+        val updated = client.state.value as ControlState.Connected
+        assertEquals("Room closed by director", updated.notice)
+        assertTrue(updated.rooms.isEmpty())
+    }
+
+    @Test
     fun `exposes every room command on the wire`() {
         val factory = FakeWebSocketFactory()
         val client = client(factory)
         client.connect(server())
         factory.listener.onOpen(factory.socket, openResponse(factory.request))
+        factory.listener.onMessage(factory.socket, serverInfoJson())
         factory.socket.sent.clear()
 
         client.createRoom("  MEDIA  ")
@@ -123,7 +205,7 @@ class ControlClientTest {
             "leave_room",
             Protocol.json.decodeFromString(LeaveRoomMessage.serializer(), sent[6]).type,
         )
-        assertEquals(ControlState.Disconnected, client.state.value)
+        assertTrue(client.state.value is ControlState.Connected)
     }
 
     @Test
@@ -294,6 +376,11 @@ class ControlClientTest {
             },
         )
     }
+
+    private fun serverInfoJson(): String =
+        """{"type":"server_info","protocol":1,"serverId":"test-server",""" +
+            """"livekitUrl":"ws://192.168.137.1:7880",""" +
+            """"serverTime":"2026-10-21T09:00:00.000Z"}"""
 
     private fun joinedJson(muted: Boolean): String =
         """{"type":"joined","participantId":"participant-fixture-1",""" +

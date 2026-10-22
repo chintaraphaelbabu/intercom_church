@@ -2,10 +2,15 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   PROTOCOL_VERSION,
-  type DebugRosterMessage,
+  type JoinedMessage,
+  type RoomListMessage,
   type ServerInfoMessage,
 } from "@church-comms/protocol";
 import { App, type DirectorMediaControls } from "./App";
+import {
+  DIRECTOR_SESSION_STORAGE_KEY,
+  type SessionStorage,
+} from "./connection";
 import type { DirectorMediaState } from "./media";
 
 class FakeWebSocket {
@@ -40,7 +45,25 @@ class FakeWebSocket {
   }
 }
 
-function renderDirector(): FakeWebSocket {
+class MemoryStorage implements SessionStorage {
+  private readonly values = new Map<string, string>();
+
+  getItem(key: string): string | null {
+    return this.values.get(key) ?? null;
+  }
+
+  setItem(key: string, value: string): void {
+    this.values.set(key, value);
+  }
+
+  removeItem(key: string): void {
+    this.values.delete(key);
+  }
+}
+
+function renderDirector(
+  options: { storage?: SessionStorage; media?: DirectorMediaControls } = {},
+): FakeWebSocket {
   render(
     <App
       connectionOptions={{
@@ -49,7 +72,9 @@ function renderDirector(): FakeWebSocket {
           const socket = new FakeWebSocket("ws://test.local/ws");
           return socket as unknown as WebSocket;
         },
+        ...(options.storage !== undefined ? { storage: options.storage } : {}),
       }}
+      {...(options.media !== undefined ? { media: options.media } : {})}
     />,
   );
   const socket = FakeWebSocket.instances.at(-1);
@@ -109,25 +134,59 @@ const serverInfo: ServerInfoMessage = {
   serverTime: "2026-10-21T09:00:00.000Z",
 };
 
-const roster: DebugRosterMessage = {
-  type: "debug_roster",
-  clients: [
-    {
+const joinedRoom: JoinedMessage = {
+  type: "joined",
+  participantId: "director-1",
+  sessionToken: "session-1",
+  room: {
+    name: "MEDIA",
+    status: "open",
+    capacity: 11,
+    director: {
       id: "director-1",
       name: "Director",
-      clientType: "director",
-      appVersion: "0.1.0",
-      connectedAt: "2026-10-21T09:00:00.000Z",
+      role: "director",
+      cameraNumber: null,
+      connectionState: "connected",
+      muted: false,
+      joinedAt: "2026-10-21T09:00:00.000Z",
     },
+    operators: [
+      {
+        id: "operator-1",
+        name: "Camera 1",
+        role: "operator",
+        cameraNumber: 1,
+        connectionState: "connected",
+        muted: false,
+        joinedAt: "2026-10-21T09:01:00.000Z",
+      },
+    ],
+  },
+  livekit: {
+    url: "ws://192.168.1.20:7880",
+    room: "MEDIA",
+    token: "director-token",
+    expiresAt: "2026-10-21T11:00:00.000Z",
+  },
+};
+
+const roomList: RoomListMessage = {
+  type: "room_list",
+  rooms: [
     {
-      id: "camera-1",
-      name: "Camera 1",
-      clientType: "operator",
-      appVersion: "0.1.0",
-      connectedAt: "2026-10-21T09:00:05.000Z",
+      name: "MEDIA",
+      status: "open",
+      directorPresent: true,
+      operatorCount: 0,
+      capacity: 11,
     },
   ],
 };
+
+function sentMessages(socket: FakeWebSocket): Array<Record<string, unknown>> {
+  return socket.sent.map((raw) => JSON.parse(raw) as Record<string, unknown>);
+}
 
 beforeEach(() => {
   FakeWebSocket.instances = [];
@@ -137,37 +196,153 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe("Director app", () => {
-  it("sends a v1 director hello, then shows server info and the live roster", () => {
-    const socket = renderDirector();
-    expect(screen.getByTestId("connection-status")).toHaveTextContent("connecting");
+describe("Director room workflow", () => {
+  it("creates a named room with the MEDIA default and shows the server snapshot", () => {
+    const storage = new MemoryStorage();
+    const socket = renderDirector({ storage });
+    act(() => {
+      socket.open();
+      socket.receive(serverInfo);
+    });
 
+    expect(screen.getByLabelText("Room name")).toHaveValue("MEDIA");
+    fireEvent.click(screen.getByRole("button", { name: "Create room" }));
+
+    expect(sentMessages(socket)).toContainEqual({
+      type: "create_room",
+      name: "MEDIA",
+    });
+    expect(screen.getByText("Creating room…")).toBeInTheDocument();
+
+    act(() => socket.receive(joinedRoom));
+
+    expect(screen.getByRole("heading", { name: "MEDIA" })).toBeInTheDocument();
+    expect(screen.getByTestId("endpoint-status")).toHaveTextContent("connected");
+    expect(screen.getByRole("button", { name: "End room" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Create a room" })).not.toBeInTheDocument();
+    expect(storage.getItem(DIRECTOR_SESSION_STORAGE_KEY)).toBe("session-1");
+  });
+
+  it("keeps the form and shows the server's readable duplicate-name error", () => {
+    const socket = renderDirector();
+    act(() => {
+      socket.open();
+      socket.receive(serverInfo);
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Create room" }));
+    act(() =>
+      socket.receive({
+        type: "error",
+        code: "ROOM_EXISTS",
+        message: 'Room "MEDIA" already exists.',
+      }),
+    );
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      'Room "MEDIA" already exists.',
+    );
+    expect(screen.getByLabelText("Room name")).toHaveValue("MEDIA");
+    expect(screen.getByRole("button", { name: "Create room" })).toBeEnabled();
+    expect(screen.queryByRole("button", { name: "End room" })).not.toBeInTheDocument();
+  });
+
+  it("validates an empty room name before sending it to the server", () => {
+    const socket = renderDirector();
+    act(() => {
+      socket.open();
+      socket.receive(serverInfo);
+    });
+
+    fireEvent.change(screen.getByLabelText("Room name"), {
+      target: { value: "   " },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Create room" }));
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Enter a room name of 1-24 characters.",
+    );
+    expect(sentMessages(socket).some((message) => message.type === "create_room")).toBe(
+      false,
+    );
+  });
+
+  it("ends the room immediately and returns to setup using the server broadcast", () => {
+    const socket = renderDirector();
+    act(() => {
+      socket.open();
+      socket.receive(serverInfo);
+      socket.receive(joinedRoom);
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "End room" }));
+    expect(sentMessages(socket).at(-1)).toEqual({ type: "end_room" });
+
+    act(() =>
+      socket.receive({
+        type: "room_closed",
+        room: "MEDIA",
+        reason: "ended_by_director",
+      }),
+    );
+
+    expect(screen.getByRole("heading", { name: "Create a room" })).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("Room closed by director");
+    expect(screen.queryByRole("button", { name: "End room" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "MEDIA" })).not.toBeInTheDocument();
+  });
+
+  it("resumes with the stored session token and restores the server snapshot", () => {
+    const storage = new MemoryStorage();
+    storage.setItem(DIRECTOR_SESSION_STORAGE_KEY, "stored-token");
+    const socket = renderDirector({ storage });
     act(() => socket.open());
 
-    expect(JSON.parse(socket.sent[0] ?? "{}")).toMatchObject({
+    expect(sentMessages(socket)[0]).toMatchObject({
       type: "hello",
-      protocol: PROTOCOL_VERSION,
       clientType: "director",
-      name: "Director",
+      sessionToken: "stored-token",
     });
 
     act(() => {
       socket.receive(serverInfo);
-      socket.receive(roster);
+      socket.receive(roomList);
     });
 
-    expect(screen.getByTestId("protocol-version")).toHaveTextContent("v1");
-    expect(screen.getByTestId("connection-status")).toHaveTextContent("connected");
-    expect(screen.getByText("test-server")).toBeInTheDocument();
-    expect(screen.getByText("ws://192.168.1.20:7880")).toBeInTheDocument();
+    // A room list is not participation: the Director must not invent a room.
+    expect(screen.getByRole("heading", { name: "Create a room" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "End room" })).not.toBeInTheDocument();
 
-    const rows = screen.getAllByRole("listitem");
-    expect(rows).toHaveLength(2);
-    expect(screen.getByText("Camera 1")).toBeInTheDocument();
-    expect(screen.getByText("Operator")).toBeInTheDocument();
-    expect(screen.getByText("Director", { selector: ".chip" })).toBeInTheDocument();
+    act(() => socket.receive(joinedRoom));
+
+    expect(screen.getByRole("heading", { name: "MEDIA" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "End room" })).toBeInTheDocument();
   });
 
+  it("does not fabricate room state when a stale session token expires", () => {
+    const storage = new MemoryStorage();
+    storage.setItem(DIRECTOR_SESSION_STORAGE_KEY, "stale-token");
+    const socket = renderDirector({ storage });
+    act(() => {
+      socket.open();
+      socket.receive(serverInfo);
+      socket.receive(roomList);
+      socket.receive({
+        type: "error",
+        code: "SESSION_EXPIRED",
+        message: "Your session has expired. Join the room again.",
+      });
+    });
+
+    expect(storage.getItem(DIRECTOR_SESSION_STORAGE_KEY)).toBeNull();
+    expect(screen.getByRole("alert")).toHaveTextContent("Your session has expired.");
+    expect(screen.getByRole("heading", { name: "Create a room" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "End room" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "MEDIA" })).not.toBeInTheDocument();
+  });
+});
+
+describe("Director connection", () => {
   it("shows a protocol mismatch as a readable error", () => {
     const socket = renderDirector();
     act(() => {
@@ -184,17 +359,6 @@ describe("Director app", () => {
     expect(screen.getByTestId("connection-status")).toHaveTextContent("error");
   });
 
-  it("explains an empty roster while connected", () => {
-    const socket = renderDirector();
-    act(() => {
-      socket.open();
-      socket.receive(serverInfo);
-      socket.receive({ type: "debug_roster", clients: [] });
-    });
-
-    expect(screen.getByText("No clients connected yet.")).toBeInTheDocument();
-  });
-
   it("shows a reconnecting state instead of silently going quiet", () => {
     const socket = renderDirector();
     act(() => {
@@ -209,16 +373,7 @@ describe("Director app", () => {
 
   it("turns open mic on and off from the Director page", async () => {
     const media = new FakeDirectorMedia();
-    render(
-      <App
-        connectionOptions={{
-          url: "ws://test.local/ws",
-          socketFactory: () =>
-            new FakeWebSocket("ws://test.local/ws") as unknown as WebSocket,
-        }}
-        media={media}
-      />,
-    );
+    renderDirector({ media });
 
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "Turn open mic on" }));

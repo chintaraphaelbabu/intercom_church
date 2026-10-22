@@ -105,6 +105,54 @@ button:disabled {
   color: #f3c6c6;
 }
 
+.notice {
+  margin: 14px 0 0;
+  padding: 10px 14px;
+  border: 1px solid #2c6a58;
+  border-radius: 8px;
+  color: var(--accent);
+  background: #16302a;
+}
+
+.create-room {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  margin: 16px 0 12px;
+}
+
+.field {
+  display: grid;
+  flex: 1;
+  gap: 6px;
+}
+
+.field span {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.field input {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font: inherit;
+  color: inherit;
+  background: var(--surface-raised);
+}
+
+.field input:focus {
+  border-color: var(--accent);
+  outline: 2px solid #2c6a58;
+  outline-offset: 1px;
+}
+
+.button--danger {
+  background: var(--danger);
+}
+
 button {
   border: 0;
   border-radius: 8px;

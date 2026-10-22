@@ -1,19 +1,14 @@
-import { useEffect, useMemo, useSyncExternalStore } from "react";
-import type { JSX } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import type { FormEvent, JSX } from "react";
+import {
+  MAX_ROOM_NAME_LENGTH,
+  roomClosedMessage,
+  validateRoomName,
+  type RoomSnapshot,
+} from "@church-comms/protocol";
 import { DirectorConnection, type DirectorConnectionOptions } from "./connection";
 import { fetchDirectorToken, LiveKitDirectorRoom } from "./livekit-room";
 import { DirectorMedia, type DirectorMediaState } from "./media";
-
-const CLIENT_TYPE_LABELS: Record<string, string> = {
-  director: "Director",
-  operator: "Operator",
-  debug: "Debug",
-};
-
-function formatTime(iso: string): string {
-  const date = new Date(iso);
-  return Number.isNaN(date.getTime()) ? iso : date.toLocaleTimeString();
-}
 
 function mediaStatusLabel(phase: DirectorMediaState["phase"]): string {
   switch (phase) {
@@ -28,6 +23,10 @@ function mediaStatusLabel(phase: DirectorMediaState["phase"]): string {
     case "error":
       return "media failed";
   }
+}
+
+function participantCount(room: RoomSnapshot): number {
+  return room.operators.length + (room.director === null ? 0 : 1);
 }
 
 export interface AppProps {
@@ -61,6 +60,9 @@ export function App({ connectionOptions, media: mediaOverride }: AppProps = {}):
   );
   const state = useSyncExternalStore(connection.subscribe, connection.getSnapshot);
   const mediaState = useSyncExternalStore(media.subscribe, media.getState);
+  const [roomName, setRoomName] = useState("MEDIA");
+  const [formError, setFormError] = useState<string>();
+  const [creating, setCreating] = useState(false);
 
   useEffect(() => {
     connection.connect();
@@ -73,7 +75,32 @@ export function App({ connectionOptions, media: mediaOverride }: AppProps = {}):
     };
   }, [media]);
 
-  const { phase, serverInfo, roster, error } = state;
+  useEffect(() => {
+    if (state.joinedRoom !== undefined || state.error !== undefined) {
+      setCreating(false);
+    }
+  }, [state.joinedRoom, state.error]);
+
+  const { phase, serverInfo, joinedRoom, error, errorCode } = state;
+  const showConnectionAlert =
+    error !== undefined &&
+    (joinedRoom !== undefined ||
+      errorCode === "PROTOCOL_MISMATCH" ||
+      phase === "error" ||
+      phase === "reconnecting" ||
+      phase === "disconnected");
+
+  function createRoom(event: FormEvent<HTMLFormElement>): void {
+    event.preventDefault();
+    const name = roomName.trim();
+    if (!validateRoomName(name)) {
+      setFormError(`Enter a room name of 1-${MAX_ROOM_NAME_LENGTH} characters.`);
+      return;
+    }
+    setFormError(undefined);
+    setCreating(true);
+    connection.createRoom(name);
+  }
 
   return (
     <main className="director">
@@ -87,7 +114,7 @@ export function App({ connectionOptions, media: mediaOverride }: AppProps = {}):
         </span>
       </header>
 
-      {error !== undefined && (
+      {showConnectionAlert && (
         <div className="alert" role="alert">
           <strong>Control connection problem</strong>
           <p>{error}</p>
@@ -99,31 +126,130 @@ export function App({ connectionOptions, media: mediaOverride }: AppProps = {}):
         </div>
       )}
 
-      <section className="card" aria-labelledby="server-heading">
-        <h2 id="server-heading">Server</h2>
-        {serverInfo === undefined ? (
-          <p className="muted">Waiting for the control server…</p>
-        ) : (
+      {joinedRoom === undefined ? (
+        <>
+          <section className="card" aria-labelledby="create-heading">
+            <h2 id="create-heading">Create a room</h2>
+            <p className="muted">
+              Name the room the camera Operators will join. The room exists until you
+              end it or the control server stops.
+            </p>
+
+            {state.roomClosedReason !== undefined && (
+              <p className="notice" role="status">
+                {roomClosedMessage(state.roomClosedReason)}
+              </p>
+            )}
+
+            {error !== undefined && !showConnectionAlert && !creating && (
+              <div className="alert" role="alert">
+                <strong>
+                  {errorCode === "SESSION_EXPIRED" ? "Session expired" : "Could not create the room"}
+                </strong>
+                <p>{error}</p>
+              </div>
+            )}
+
+            {formError !== undefined && (
+              <div className="alert" role="alert">
+                <strong>Check the room name</strong>
+                <p>{formError}</p>
+              </div>
+            )}
+
+            <form className="create-room" onSubmit={createRoom}>
+              <label className="field" htmlFor="room-name">
+                <span>Room name</span>
+                <input
+                  id="room-name"
+                  name="room-name"
+                  value={roomName}
+                  maxLength={MAX_ROOM_NAME_LENGTH}
+                  onChange={(event) => setRoomName(event.target.value)}
+                  autoComplete="off"
+                />
+              </label>
+              <button type="submit" disabled={phase !== "connected"}>
+                Create room
+              </button>
+            </form>
+
+            {creating && error === undefined && (
+              <p className="muted" role="status">
+                Creating room…
+              </p>
+            )}
+
+            {phase !== "connected" && (
+              <p className="muted">
+                Waiting for the control server before a room can be created.
+              </p>
+            )}
+          </section>
+
+          <section className="card" aria-labelledby="endpoint-heading">
+            <h2 id="endpoint-heading">Control endpoint</h2>
+            {serverInfo === undefined ? (
+              <p className="muted">Waiting for the control server…</p>
+            ) : (
+              <dl className="facts">
+                <div>
+                  <dt>Protocol</dt>
+                  <dd data-testid="protocol-version">v{serverInfo.protocol}</dd>
+                </div>
+                <div>
+                  <dt>Status</dt>
+                  <dd data-testid="endpoint-status">{phase}</dd>
+                </div>
+                <div>
+                  <dt>LiveKit</dt>
+                  <dd className="mono">{serverInfo.livekitUrl}</dd>
+                </div>
+              </dl>
+            )}
+          </section>
+        </>
+      ) : (
+        <section className="card room" aria-labelledby="room-heading">
+          <div className="card__title">
+            <h2 id="room-heading">{joinedRoom.name}</h2>
+            <span className="status status--connected">{joinedRoom.status}</span>
+          </div>
           <dl className="facts">
             <div>
-              <dt>Protocol</dt>
-              <dd data-testid="protocol-version">v{serverInfo.protocol}</dd>
+              <dt>Control endpoint</dt>
+              <dd data-testid="endpoint-status">{phase}</dd>
             </div>
             <div>
-              <dt>Server ID</dt>
-              <dd className="mono">{serverInfo.serverId}</dd>
+              <dt>Participants</dt>
+              <dd>
+                {participantCount(joinedRoom)} of {joinedRoom.capacity}
+              </dd>
             </div>
             <div>
-              <dt>LiveKit</dt>
-              <dd className="mono">{serverInfo.livekitUrl}</dd>
+              <dt>LiveKit room</dt>
+              <dd className="mono">{state.livekit?.room ?? joinedRoom.name}</dd>
             </div>
-            <div>
-              <dt>Server time</dt>
-              <dd>{formatTime(serverInfo.serverTime)}</dd>
-            </div>
+            {state.health !== undefined && (
+              <div>
+                <dt>Server health</dt>
+                <dd>{state.health.status}</dd>
+              </div>
+            )}
           </dl>
-        )}
-      </section>
+          <p className="muted">
+            Ending the room disconnects every Operator immediately. They return to the
+            join screen.
+          </p>
+          <button
+            type="button"
+            className="button--danger"
+            onClick={() => connection.endRoom()}
+          >
+            End room
+          </button>
+        </section>
+      )}
 
       <section className="card" aria-labelledby="audio-heading">
         <div className="card__title">
@@ -149,32 +275,6 @@ export function App({ connectionOptions, media: mediaOverride }: AppProps = {}):
         >
           {mediaState.micEnabled ? "Turn open mic off" : "Turn open mic on"}
         </button>
-      </section>
-
-      <section className="card" aria-labelledby="roster-heading">
-        <div className="card__title">
-          <h2 id="roster-heading">Debug roster</h2>
-          <span className="count">{roster.length}</span>
-        </div>
-        {roster.length === 0 ? (
-          <p className="muted">No clients connected yet.</p>
-        ) : (
-          <ul className="roster" aria-label="Connected clients">
-            {roster.map((client) => (
-              <li key={client.id} className="roster__row">
-                <div>
-                  <span className="roster__name">{client.name}</span>
-                  <span className="roster__meta">
-                    app {client.appVersion} · joined {formatTime(client.connectedAt)}
-                  </span>
-                </div>
-                <span className={`chip chip--${client.clientType}`}>
-                  {CLIENT_TYPE_LABELS[client.clientType] ?? client.clientType}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
       </section>
 
       <footer className="director__footer">

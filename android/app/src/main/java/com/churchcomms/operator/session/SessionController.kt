@@ -7,6 +7,7 @@ import com.churchcomms.operator.discovery.DiscoverySource
 import com.churchcomms.operator.discovery.DiscoveryState
 import com.churchcomms.operator.media.MediaController
 import com.churchcomms.operator.media.MediaState
+import com.churchcomms.operator.protocol.RoomSummary
 import com.churchcomms.operator.service.SessionServiceGateway
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -38,12 +39,22 @@ data class SessionState(
     val activeRoomName: String
         get() = (control as? ControlState.Joined)?.room?.name ?: roomName
 
+    /** The server's joinable room list while the Operator is in the lobby. */
+    val lobbyRooms: List<RoomSummary>
+        get() = (control as? ControlState.Connected)?.rooms.orEmpty()
+
+    /** One-off lobby message such as "Room closed by director". */
+    val notice: String?
+        get() = (control as? ControlState.Connected)?.notice
+
     val isSessionActive: Boolean
-        get() = control is ControlState.Connecting ||
-            control is ControlState.Connected ||
-            control is ControlState.Joined ||
-            control is ControlState.Reconnecting
+        get() = control is ControlState.Joined ||
+            control is ControlState.Reconnecting ||
+            (control is ControlState.Connected && serviceRunning)
 }
+
+/** A Room summary's participant count: the Director plus every Operator. */
+fun RoomSummary.participantCount(): Int = operatorCount + if (directorPresent) 1 else 0
 
 private data class JoinSelection(
     val server: DiscoveredServer? = null,
@@ -160,25 +171,33 @@ class SessionController(
         control.joinRoom(room = roomName, name = displayName, cameraNumber = cameraNumber)
     }
 
+    /** Join with the existing selection, defaulting the camera slot to 1. */
+    fun joinRoom(roomName: String) {
+        joinRoom(
+            roomName = roomName,
+            displayName = selection.value.displayName,
+            cameraNumber = selection.value.cameraNumber ?: 1,
+        )
+    }
+
     fun endRoom() {
         control.endRoom()
     }
 
     /**
-     * Leave everything: send `leave_room` when joined, close media, stop the
-     * foreground service, and return discovery to the join screen.
+     * Leave the current room back to the join list. From the lobby this
+     * disconnects from the control server and returns to discovery.
      */
     fun leave() {
-        control.leaveRoom()
-        media.disconnect()
-        stopSessionService()
-        lastLivekitToken = null
-        selection.update {
-            it.copy(
-                roomName = "",
-                cameraNumber = null,
-            )
+        if (control.state.value is ControlState.Joined) {
+            // The server removes the participant immediately and broadcasts the
+            // updated room list; the control socket stays connected for the lobby.
+            control.leaveRoom()
+            endLocalSession()
+            return
         }
+        control.disconnect()
+        endLocalSession()
         if (started) {
             discovery.start()
         }
@@ -236,6 +255,14 @@ class SessionController(
 
             is ControlState.Reconnecting -> Unit
 
+            is ControlState.Connected -> {
+                // A room_closed broadcast carries a notice. A reconnect also passes
+                // through Connected for the new hello, and must keep the session.
+                if (controlState.notice != null) {
+                    endLocalSession()
+                }
+            }
+
             is ControlState.Failed -> {
                 stopSessionService()
                 lastLivekitToken = null
@@ -248,7 +275,6 @@ class SessionController(
             }
 
             ControlState.Connecting,
-            is ControlState.Connected,
             -> Unit
         }
     }
@@ -299,5 +325,19 @@ class SessionController(
             serviceRoom = null
         }
         serviceRunning.value = false
+    }
+
+    private fun endLocalSession() {
+        if (serviceRoom != null || lastLivekitToken != null) {
+            media.disconnect()
+            stopSessionService()
+        }
+        lastLivekitToken = null
+        selection.update {
+            it.copy(
+                roomName = "",
+                cameraNumber = null,
+            )
+        }
     }
 }

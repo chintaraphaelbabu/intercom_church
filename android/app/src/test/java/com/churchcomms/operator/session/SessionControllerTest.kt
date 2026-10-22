@@ -10,6 +10,7 @@ import com.churchcomms.operator.media.MediaState
 import com.churchcomms.operator.protocol.LiveKitCredentials
 import com.churchcomms.operator.protocol.Participant
 import com.churchcomms.operator.protocol.RoomSnapshot
+import com.churchcomms.operator.protocol.RoomSummary
 import com.churchcomms.operator.protocol.ServerInfoMessage
 import com.churchcomms.operator.service.SessionServiceGateway
 import kotlinx.coroutines.CoroutineScope
@@ -45,26 +46,99 @@ class SessionControllerTest {
     @Test
     fun `starts the foreground service on joined and stops it after failure`() = runTest {
         val control = FakeControl()
+        val media = FakeMedia()
         val service = FakeService()
-        val controller = controller(FakeDiscovery(), control, FakeMedia(), service, this)
+        val controller = controller(FakeDiscovery(), control, media, service, this)
         control.state.value = joined()
         advanceUntilIdle()
 
         assertEquals("MEDIA", service.roomName)
         assertTrue(service.running)
         assertEquals("MEDIA", controller.state.value.activeRoomName)
+        assertTrue(controller.state.value.isSessionActive)
 
         control.state.value = ControlState.Reconnecting(2, 5)
         advanceUntilIdle()
         assertTrue(service.running)
 
+        // A resume briefly passes through Connected after the new hello.
+        control.state.value = connected()
+        advanceUntilIdle()
+        assertTrue(service.running)
+        assertEquals(0, media.disconnectCalls)
+        assertTrue(controller.state.value.isSessionActive)
+
         control.state.value = ControlState.Failed("No Wi-Fi", canRetry = true)
         advanceUntilIdle()
+        assertFalse(service.running)
+        assertFalse(controller.state.value.isSessionActive)
+    }
+
+    @Test
+    fun `a connected lobby exposes rooms without starting a session`() = runTest {
+        val control = FakeControl()
+        val service = FakeService()
+        val controller = controller(FakeDiscovery(), control, FakeMedia(), service, this)
+
+        control.state.value = connected(
+            rooms = listOf(
+                RoomSummary(
+                    name = "MEDIA",
+                    status = "open",
+                    directorPresent = true,
+                    operatorCount = 2,
+                    capacity = 11,
+                ),
+            ),
+        )
+        advanceUntilIdle()
+
+        val state = controller.state.value
+        assertFalse(state.isSessionActive)
+        assertEquals(listOf("MEDIA"), state.lobbyRooms.map { it.name })
+        assertEquals(3, state.lobbyRooms.single().participantCount())
         assertFalse(service.running)
     }
 
     @Test
-    fun `leave sends leave-room, stops audio and service, and restarts discovery`() = runTest {
+    fun `join uses the selected display name and the default camera number`() = runTest {
+        val control = FakeControl()
+        val controller = controller(FakeDiscovery(), control, FakeMedia(), FakeService(), this)
+        control.state.value = connected()
+        controller.setDisplayName("Camera 3")
+
+        controller.joinRoom("MEDIA")
+
+        assertEquals(JoinCall("MEDIA", "Camera 3", 1), control.joins.single())
+    }
+
+    @Test
+    fun `room closed returns to the join list and shows the readable reason`() = runTest {
+        val control = FakeControl()
+        val media = FakeMedia()
+        val service = FakeService()
+        val controller = controller(FakeDiscovery(), control, media, service, this)
+        control.state.value = joined()
+        advanceUntilIdle()
+        assertTrue(service.running)
+
+        control.state.value = connected(
+            rooms = emptyList(),
+            notice = "Room closed by director",
+        )
+        advanceUntilIdle()
+
+        val state = controller.state.value
+        assertFalse(state.isSessionActive)
+        assertEquals("Room closed by director", state.notice)
+        assertEquals(emptyList<RoomSummary>(), state.lobbyRooms)
+        assertEquals("", state.roomName)
+        assertFalse(service.running)
+        assertEquals(1, media.disconnectCalls)
+    }
+
+    @Test
+    fun `leaving a room returns to the lobby without restarting discovery`() = runTest {
         val discovery = FakeDiscovery()
         val control = FakeControl()
         val media = FakeMedia()
@@ -74,16 +148,34 @@ class SessionControllerTest {
 
         control.state.value = joined()
         advanceUntilIdle()
-        controller.joinRoom(roomName = "MEDIA", displayName = "Camera 1", cameraNumber = 1)
         controller.leave()
         advanceUntilIdle()
 
         assertEquals(1, control.leaveCalls)
+        assertEquals(0, control.disconnectCalls)
         assertEquals(1, media.disconnectCalls)
         assertFalse(service.running)
-        assertEquals(ControlState.Disconnected, controller.state.value.control)
+        assertTrue(controller.state.value.control is ControlState.Connected)
+        assertFalse(controller.state.value.isSessionActive)
         assertEquals("", controller.state.value.roomName)
+        assertEquals(1, discovery.startCalls)
+    }
+
+    @Test
+    fun `leaving the lobby disconnects and restarts discovery`() = runTest {
+        val discovery = FakeDiscovery()
+        val control = FakeControl()
+        val controller = controller(discovery, control, FakeMedia(), FakeService(), this)
+        controller.start()
+        control.state.value = connected()
+        advanceUntilIdle()
+
+        controller.leave()
+        advanceUntilIdle()
+
+        assertEquals(1, control.disconnectCalls)
         assertEquals(2, discovery.startCalls)
+        assertEquals(ControlState.Disconnected, controller.state.value.control)
     }
 
     @Test
@@ -137,14 +229,7 @@ class SessionControllerTest {
         val control = FakeControl()
         val controller = controller(FakeDiscovery(), control, FakeMedia(), service, this)
 
-        control.state.value = ControlState.Connected(
-            serverInfo = ServerInfoMessage(
-                protocol = 1,
-                serverId = "server-1",
-                livekitUrl = "ws://192.168.1.20:7880",
-                serverTime = "2026-10-22T09:00:00.000Z",
-            ),
-        )
+        control.state.value = connected()
         advanceUntilIdle()
 
         assertFalse(service.running)
@@ -173,6 +258,22 @@ class SessionControllerTest {
         host = "192.168.137.1",
         port = 8765,
         txt = mapOf("path" to "/ws", "proto" to "1"),
+    )
+
+    private fun serverInfo() = ServerInfoMessage(
+        protocol = 1,
+        serverId = "server-1",
+        livekitUrl = "ws://192.168.1.20:7880",
+        serverTime = "2026-10-22T09:00:00.000Z",
+    )
+
+    private fun connected(
+        rooms: List<RoomSummary> = emptyList(),
+        notice: String? = null,
+    ) = ControlState.Connected(
+        serverInfo = serverInfo(),
+        rooms = rooms,
+        notice = notice,
     )
 
     private fun joined(): ControlState.Joined = ControlState.Joined(
@@ -211,6 +312,12 @@ class SessionControllerTest {
         ),
     )
 
+    private data class JoinCall(
+        val room: String,
+        val name: String,
+        val cameraNumber: Int,
+    )
+
     private class FakeDiscovery : DiscoverySource {
         override val state = MutableStateFlow<DiscoveryState>(DiscoveryState.Idle)
         var startCalls = 0
@@ -237,7 +344,9 @@ class SessionControllerTest {
         override val state = MutableStateFlow<ControlState>(ControlState.Disconnected)
         var connectedTo: DiscoveredServer? = null
         var leaveCalls = 0
+        var disconnectCalls = 0
         var retryCalls = 0
+        val joins = mutableListOf<JoinCall>()
 
         override fun connect(server: DiscoveredServer) {
             connectedTo = server
@@ -250,16 +359,28 @@ class SessionControllerTest {
         }
 
         override fun disconnect() {
+            disconnectCalls += 1
             state.value = ControlState.Disconnected
         }
 
         override fun createRoom(name: String) = Unit
 
-        override fun joinRoom(room: String, name: String, cameraNumber: Int) = Unit
+        override fun joinRoom(room: String, name: String, cameraNumber: Int) {
+            joins += JoinCall(room, name, cameraNumber)
+        }
 
         override fun leaveRoom() {
             leaveCalls += 1
-            state.value = ControlState.Disconnected
+            val current = state.value
+            val serverInfo = (current as? ControlState.Joined)?.serverInfo
+                ?: (current as? ControlState.Connected)?.serverInfo
+                ?: ServerInfoMessage(
+                    protocol = 1,
+                    serverId = "server-1",
+                    livekitUrl = "ws://192.168.1.20:7880",
+                    serverTime = "2026-10-22T09:00:00.000Z",
+                )
+            state.value = ControlState.Connected(serverInfo = serverInfo)
         }
 
         override fun endRoom() = Unit

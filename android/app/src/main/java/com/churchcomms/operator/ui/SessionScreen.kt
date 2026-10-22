@@ -93,31 +93,18 @@ fun SessionScreen(
             }
 
             is ControlState.Connected -> {
-                ConnectedContent(control, state)
-                Spacer(Modifier.height(16.dp))
-                DirectorAudioPanel(
-                    state = state.media,
-                    onJoinAudio = actions.joinDirectorAudio,
-                    onLeaveAudio = actions.leaveAudio,
-                )
-                Spacer(Modifier.height(16.dp))
-                RosterSection(
-                    title = "Debug roster",
-                    roster = control.roster,
-                )
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    text = "Debug control connection. Named rooms become available " +
-                        "with the room flow.",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.bodySmall,
+                StatusCard(
+                    title = "Not in a room",
+                    detail = "Choose an active room on the Join tab. The room list updates " +
+                        "as the Director creates or ends rooms.",
+                    busy = false,
                 )
                 Spacer(Modifier.height(12.dp))
                 OutlinedButton(
                     onClick = actions.leave,
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    Text("Disconnect")
+                    Text("Back to discovery")
                 }
             }
 
@@ -154,48 +141,6 @@ fun SessionScreen(
                     Text("Leave room")
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun ConnectedContent(
-    control: ControlState.Connected,
-    state: SessionState,
-) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.surface,
-        shape = RoundedCornerShape(14.dp),
-    ) {
-        Column(Modifier.padding(16.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement
-                    .SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = "Control server",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                )
-                Chip("connected", accent = true)
-            }
-            Spacer(Modifier.height(10.dp))
-            Fact("Protocol", "v${control.serverInfo.protocol}")
-            Fact("Server ID", control.serverInfo.serverId, monospace = true)
-            Fact(
-                "LiveKit",
-                state.selectedServer?.livekitUrl ?: control.serverInfo.livekitUrl,
-                monospace = true,
-            )
-            Fact("Server time", control.serverInfo.serverTime)
-            control.health?.let { health ->
-                Fact("Server health", "${health.status} \u00b7 ${health.rooms} rooms")
-            }
-            Fact("Room", state.roomName.ifBlank { "not selected" })
-            Fact("Camera", state.cameraNumber?.toString() ?: "not selected")
         }
     }
 }
