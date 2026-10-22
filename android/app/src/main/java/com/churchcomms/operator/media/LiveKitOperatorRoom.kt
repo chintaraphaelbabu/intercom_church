@@ -126,11 +126,13 @@ class LiveKitOperatorRoom(private val context: Context) : OperatorRoom {
                 // Already-published track: disabling it mutes capture without a
                 // renegotiation or a new publication.
                 localAudioTrack?.enabled = false
+                Log.i(TAG, "PTT transmit off")
                 return@withLock
             }
 
             val track = localAudioTrack ?: publishMicrophone(room)
             track.enabled = true
+            Log.i(TAG, "PTT transmit on")
         }
     }
 

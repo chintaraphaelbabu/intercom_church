@@ -1,5 +1,6 @@
 package com.churchcomms.operator.ui
 
+import android.util.Log
 import android.view.HapticFeedbackConstants
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -95,10 +96,12 @@ fun PttButton(
                     onPress = {
                         // One short tick on press only; no repeating pattern.
                         view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+                        Log.i("ChurchComms.Ptt", "PTT press")
                         try {
                             currentOnPress()
                             tryAwaitRelease()
                         } finally {
+                            Log.i("ChurchComms.Ptt", "PTT release")
                             currentOnRelease()
                         }
                     },
