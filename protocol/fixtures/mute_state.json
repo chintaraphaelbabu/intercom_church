@@ -1,0 +1,7 @@
+{
+  "type": "mute_state",
+  "room": "MEDIA",
+  "participantId": "participant-fixture-1",
+  "muted": true,
+  "by": "director-fixture-1"
+}

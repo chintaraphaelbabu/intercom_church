@@ -1,0 +1,23 @@
+{
+  "type": "director_state",
+  "present": false,
+  "graceDeadline": "2026-10-22T10:05:00.000Z",
+  "room": {
+    "name": "MEDIA",
+    "status": "grace",
+    "capacity": 11,
+    "graceDeadline": "2026-10-22T10:05:00.000Z",
+    "director": null,
+    "operators": [
+      {
+        "id": "participant-fixture-1",
+        "name": "Camera 1",
+        "role": "operator",
+        "cameraNumber": 1,
+        "connectionState": "connected",
+        "muted": false,
+        "joinedAt": "2026-10-22T09:56:00.000Z"
+      }
+    ]
+  }
+}

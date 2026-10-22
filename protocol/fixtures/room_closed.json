@@ -1,0 +1,5 @@
+{
+  "type": "room_closed",
+  "room": "MEDIA",
+  "reason": "ended_by_director"
+}

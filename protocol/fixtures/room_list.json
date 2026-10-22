@@ -1,0 +1,20 @@
+{
+  "type": "room_list",
+  "rooms": [
+    {
+      "name": "MEDIA",
+      "status": "open",
+      "directorPresent": true,
+      "operatorCount": 2,
+      "capacity": 11
+    },
+    {
+      "name": "SECURITY",
+      "status": "grace",
+      "directorPresent": false,
+      "operatorCount": 1,
+      "capacity": 11,
+      "graceDeadline": "2026-10-22T10:05:00.000Z"
+    }
+  ]
+}
