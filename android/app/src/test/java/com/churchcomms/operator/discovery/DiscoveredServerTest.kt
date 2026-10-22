@@ -60,4 +60,12 @@ class DiscoveredServerTest {
 
         assertEquals("ws://192.168.137.1:7880", withLivekit.livekitUrl)
     }
+
+    @Test
+    fun `token url uses http on the control port`() {
+        assertEquals(
+            "http://192.168.1.20:8765/api/livekit-token",
+            server().tokenUrl,
+        )
+    }
 }

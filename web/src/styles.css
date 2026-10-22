@@ -74,10 +74,21 @@ h2 {
   border-color: #2c6a58;
 }
 
+.status--publishing {
+  color: var(--accent);
+  border-color: #2c6a58;
+  background: #16302a;
+}
+
 .status--error,
 .status--disconnected {
   color: var(--danger);
   border-color: #6b3030;
+}
+
+button:disabled {
+  opacity: 0.55;
+  cursor: default;
 }
 
 .alert {

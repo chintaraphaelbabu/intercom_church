@@ -31,7 +31,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -44,9 +47,14 @@ import com.churchcomms.operator.control.ControlState
 import com.churchcomms.operator.discovery.DiscoveredServer
 import com.churchcomms.operator.discovery.DiscoveryService
 import com.churchcomms.operator.discovery.DiscoveryState
+import com.churchcomms.operator.media.HttpMediaTokenClient
+import com.churchcomms.operator.media.LiveKitOperatorRoom
+import com.churchcomms.operator.media.MediaState
+import com.churchcomms.operator.media.OperatorMedia
 import com.churchcomms.operator.protocol.Protocol
 import com.churchcomms.operator.protocol.RosterClient
 import com.churchcomms.operator.ui.theme.ChurchCommsTheme
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -62,13 +70,23 @@ class MainActivity : ComponentActivity() {
                 val control = remember {
                     ControlClient(appVersion = appVersion, clientName = deviceName)
                 }
+                val media = remember {
+                    OperatorMedia(
+                        tokenClient = HttpMediaTokenClient(),
+                        createRoom = { LiveKitOperatorRoom(applicationContext) },
+                    )
+                }
+                val scope = rememberCoroutineScope()
                 val discoveryState by discovery.state.collectAsStateWithLifecycle()
                 val controlState by control.state.collectAsStateWithLifecycle()
+                val mediaState by media.state.collectAsStateWithLifecycle()
+                var joinedServer by remember { mutableStateOf<DiscoveredServer?>(null) }
 
                 DisposableEffect(Unit) {
                     discovery.start()
                     onDispose {
                         discovery.stop()
+                        media.disconnect()
                         control.disconnect()
                     }
                 }
@@ -76,9 +94,30 @@ class MainActivity : ComponentActivity() {
                 OperatorScreen(
                     discoveryState = discoveryState,
                     controlState = controlState,
-                    onDebugJoin = { server -> control.connect(server) },
+                    mediaState = mediaState,
+                    joinedServer = joinedServer,
+                    onDebugJoin = { server ->
+                        joinedServer = server
+                        control.connect(server)
+                    },
                     onRetryDiscovery = { discovery.retry() },
-                    onLeave = { control.disconnect() },
+                    onJoinAudio = {
+                        joinedServer?.let { server ->
+                            scope.launch {
+                                media.connect(
+                                    tokenUrl = server.tokenUrl,
+                                    preferredLivekitUrl = server.livekitUrl,
+                                    name = deviceName,
+                                )
+                            }
+                        }
+                    },
+                    onLeaveAudio = { media.disconnect() },
+                    onLeave = {
+                        media.disconnect()
+                        joinedServer = null
+                        control.disconnect()
+                    },
                 )
             }
         }
@@ -89,8 +128,12 @@ class MainActivity : ComponentActivity() {
 private fun OperatorScreen(
     discoveryState: DiscoveryState,
     controlState: ControlState,
+    mediaState: MediaState,
+    joinedServer: DiscoveredServer?,
     onDebugJoin: (DiscoveredServer) -> Unit,
     onRetryDiscovery: () -> Unit,
+    onJoinAudio: () -> Unit,
+    onLeaveAudio: () -> Unit,
     onLeave: () -> Unit,
 ) {
     Surface(
@@ -127,6 +170,10 @@ private fun OperatorScreen(
             when (controlState) {
                 is ControlState.Connected -> ConnectedPanel(
                     state = controlState,
+                    livekitUrl = joinedServer?.livekitUrl ?: controlState.serverInfo.livekitUrl,
+                    mediaState = mediaState,
+                    onJoinAudio = onJoinAudio,
+                    onLeaveAudio = onLeaveAudio,
                     onLeave = onLeave,
                 )
 
@@ -264,6 +311,10 @@ private fun ServerCard(
 @Composable
 private fun ConnectedPanel(
     state: ControlState.Connected,
+    livekitUrl: String,
+    mediaState: MediaState,
+    onJoinAudio: () -> Unit,
+    onLeaveAudio: () -> Unit,
     onLeave: () -> Unit,
 ) {
     Surface(
@@ -287,10 +338,17 @@ private fun ConnectedPanel(
             Spacer(Modifier.height(10.dp))
             Fact("Protocol", "v${state.serverInfo.protocol}")
             Fact("Server ID", state.serverInfo.serverId, monospace = true)
-            Fact("LiveKit", state.serverInfo.livekitUrl, monospace = true)
+            Fact("LiveKit", livekitUrl, monospace = true)
             Fact("Server time", state.serverInfo.serverTime)
         }
     }
+
+    Spacer(Modifier.height(16.dp))
+    DirectorAudioPanel(
+        state = mediaState,
+        onJoinAudio = onJoinAudio,
+        onLeaveAudio = onLeaveAudio,
+    )
 
     Spacer(Modifier.height(16.dp))
     Row(
@@ -331,6 +389,111 @@ private fun ConnectedPanel(
     Spacer(Modifier.height(12.dp))
     OutlinedButton(onClick = onLeave, modifier = Modifier.fillMaxWidth()) {
         Text("Disconnect")
+    }
+}
+
+@Composable
+private fun DirectorAudioPanel(
+    state: MediaState,
+    onJoinAudio: () -> Unit,
+    onLeaveAudio: () -> Unit,
+) {
+    val label = when (state) {
+        MediaState.Idle -> "not joined"
+        MediaState.WebRtcConnecting -> "WEBRTC_CONNECTING"
+        is MediaState.Ready -> "READY"
+        is MediaState.Failed -> "MEDIA_FAILED"
+    }
+    val accent = state is MediaState.Ready
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(14.dp),
+    ) {
+        Column(Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = "Director audio",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Chip(label, accent = accent)
+            }
+            Spacer(Modifier.height(10.dp))
+
+            when (state) {
+                MediaState.Idle -> Text(
+                    text = "Join the media room to hear the Director through the headset.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+
+                MediaState.WebRtcConnecting -> Text(
+                    text = "Connecting to LiveKit…",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+
+                is MediaState.Ready -> {
+                    Fact("State", "READY")
+                    Fact("Output route", state.outputRoute)
+                    Fact(
+                        "Director",
+                        if (state.directorAudio) "live" else "waiting for audio",
+                    )
+                }
+
+                is MediaState.Failed -> MediaErrorCard(state.message)
+            }
+
+            Spacer(Modifier.height(12.dp))
+            when (state) {
+                MediaState.Idle -> Button(
+                    onClick = onJoinAudio,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text("Join Director audio")
+                }
+
+                is MediaState.Failed -> Button(
+                    onClick = onJoinAudio,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text("Retry audio")
+                }
+
+                else -> OutlinedButton(
+                    onClick = onLeaveAudio,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text("Leave audio")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MediaErrorCard(message: String) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = Color(0xFF2A1719),
+        shape = RoundedCornerShape(12.dp),
+    ) {
+        Column(Modifier.padding(16.dp)) {
+            Text(
+                text = "MEDIA_FAILED",
+                color = MaterialTheme.colorScheme.error,
+                fontWeight = FontWeight.Bold,
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(message, color = Color(0xFFF3C6C6))
+        }
     }
 }
 

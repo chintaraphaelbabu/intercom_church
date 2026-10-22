@@ -34,4 +34,4 @@ If this file and the design disagree, the design wins.
 
 ## Frontier
 
-01 is resolved (walking skeleton verified on the available SM-T295). 02 is the only unblocked ticket. 03 and 04 can then proceed independently; everything else follows the table.
+01 and 02 are resolved (02's functional acceptance is verified on the available SM-T295; its acoustic latency target remains a documented residual). 03 and 04 are now unblocked and can proceed independently; everything else follows the table.

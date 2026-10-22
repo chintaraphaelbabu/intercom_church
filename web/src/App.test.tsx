@@ -1,11 +1,12 @@
-import { act, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   PROTOCOL_VERSION,
   type DebugRosterMessage,
   type ServerInfoMessage,
 } from "@church-comms/protocol";
-import { App } from "./App";
+import { App, type DirectorMediaControls } from "./App";
+import type { DirectorMediaState } from "./media";
 
 class FakeWebSocket {
   static instances: FakeWebSocket[] = [];
@@ -56,6 +57,34 @@ function renderDirector(): FakeWebSocket {
     throw new Error("App did not open a WebSocket");
   }
   return socket;
+}
+
+class FakeDirectorMedia implements DirectorMediaControls {
+  private state: DirectorMediaState = { phase: "idle", micEnabled: false };
+  private listeners = new Set<() => void>();
+
+  getState = (): DirectorMediaState => this.state;
+
+  subscribe = (listener: () => void): (() => void) => {
+    this.listeners.add(listener);
+    return () => {
+      this.listeners.delete(listener);
+    };
+  };
+
+  async setOpenMic(enabled: boolean): Promise<void> {
+    this.state = {
+      phase: enabled ? "publishing" : "ready",
+      micEnabled: enabled,
+    };
+    for (const listener of this.listeners) {
+      listener();
+    }
+  }
+
+  async disconnect(): Promise<void> {
+    this.state = { phase: "idle", micEnabled: false };
+  }
 }
 
 const serverInfo: ServerInfoMessage = {
@@ -162,5 +191,37 @@ describe("Director app", () => {
 
     expect(screen.getByRole("alert")).toHaveTextContent("Disconnected");
     expect(screen.getByTestId("connection-status")).toHaveTextContent("disconnected");
+  });
+
+  it("turns open mic on and off from the Director page", async () => {
+    const media = new FakeDirectorMedia();
+    render(
+      <App
+        connectionOptions={{
+          url: "ws://test.local/ws",
+          socketFactory: () =>
+            new FakeWebSocket("ws://test.local/ws") as unknown as WebSocket,
+        }}
+        media={media}
+      />,
+    );
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Turn open mic on" }));
+    });
+
+    expect(screen.getByTestId("media-status")).toHaveTextContent("on air");
+    expect(
+      screen.getByRole("button", { name: "Turn open mic off" }),
+    ).toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Turn open mic off" }));
+    });
+
+    expect(screen.getByTestId("media-status")).toHaveTextContent("ready");
+    expect(
+      screen.getByRole("button", { name: "Turn open mic on" }),
+    ).toBeInTheDocument();
   });
 });

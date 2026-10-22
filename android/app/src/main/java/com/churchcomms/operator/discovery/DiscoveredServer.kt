@@ -16,34 +16,35 @@ data class DiscoveredServer(
     val port: Int,
     val txt: Map<String, String>,
 ) {
+    private val urlHost: String
+        get() = when {
+            host.startsWith("[") -> host
+            host.contains(':') -> "[$host]"
+            else -> host
+        }
+
     val controlUrl: String
         get() {
-            val formattedHost = when {
-                host.startsWith("[") -> host
-                host.contains(':') -> "[$host]"
-                else -> host
-            }
             val path = txt["path"]
                 ?.takeIf { it.startsWith("/") }
                 ?: "/ws"
-            return "ws://$formattedHost:$port$path"
+            return "ws://$urlHost:$port$path"
         }
 
     val protocolVersion: Int?
         get() = txt["proto"]?.toIntOrNull()
+
+    /** The control server's plain-HTTP token endpoint, same host and port as /ws. */
+    val tokenUrl: String
+        get() = "http://$urlHost:$port/api/livekit-token"
 
     val livekitUrl: String?
         get() {
             val advertised = txt["livekit"]?.takeIf { it.isNotBlank() } ?: return null
             val uri = runCatching { URI(advertised) }.getOrNull() ?: return advertised
             val port = if (uri.port > 0) uri.port else 7880
-            val formattedHost = when {
-                host.startsWith("[") -> host
-                host.contains(':') -> "[$host]"
-                else -> host
-            }
             val path = uri.rawPath.orEmpty()
             val query = uri.rawQuery?.let { "?$it" }.orEmpty()
-            return "${uri.scheme ?: "ws"}://$formattedHost:$port$path$query"
+            return "${uri.scheme ?: "ws"}://$urlHost:$port$path$query"
         }
 }

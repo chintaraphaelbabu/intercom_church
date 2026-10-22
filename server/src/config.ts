@@ -10,12 +10,21 @@ export const DEFAULT_PORT = 8765;
 export const DEFAULT_LIVEKIT_PORT = 7880;
 export const MDNS_SERVICE_TYPE = "church-comms";
 
+// `livekit-server --dev` uses these credentials. The launcher starts LiveKit in
+// dev mode, so the control server must mint tokens with the same pair.
+export const DEFAULT_LIVEKIT_API_KEY = "devkey";
+export const DEFAULT_LIVEKIT_API_SECRET = "secret";
+export const DEFAULT_LIVEKIT_ROOM = "media";
+
 export interface ResolvedConfig {
   host: string;
   port: number;
   serverName: string;
   serverId: string;
   livekitUrl: string;
+  livekitApiKey: string;
+  livekitApiSecret: string;
+  livekitRoom: string;
   webDist: string;
   advertiseMdns: boolean;
   logger: Logger;
@@ -28,6 +37,9 @@ export interface ConfigOverrides {
   serverName?: string | undefined;
   serverId?: string | undefined;
   livekitUrl?: string | undefined;
+  livekitApiKey?: string | undefined;
+  livekitApiSecret?: string | undefined;
+  livekitRoom?: string | undefined;
   webDist?: string | undefined;
   advertiseMdns?: boolean | undefined;
   logger?: Logger | undefined;
@@ -52,6 +64,9 @@ export function resolveConfig(overrides: ConfigOverrides = {}): ResolvedConfig {
     serverName: overrides.serverName ?? os.hostname(),
     serverId: overrides.serverId ?? crypto.randomUUID(),
     livekitUrl: overrides.livekitUrl ?? defaultLivekitUrl(),
+    livekitApiKey: overrides.livekitApiKey ?? DEFAULT_LIVEKIT_API_KEY,
+    livekitApiSecret: overrides.livekitApiSecret ?? DEFAULT_LIVEKIT_API_SECRET,
+    livekitRoom: overrides.livekitRoom ?? DEFAULT_LIVEKIT_ROOM,
     webDist: overrides.webDist ?? defaultWebDist(),
     advertiseMdns: overrides.advertiseMdns ?? true,
     logger: {

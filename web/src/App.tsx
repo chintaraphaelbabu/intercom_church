@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useSyncExternalStore } from "react";
 import type { JSX } from "react";
 import { DirectorConnection, type DirectorConnectionOptions } from "./connection";
+import { fetchDirectorToken, LiveKitDirectorRoom } from "./livekit-room";
+import { DirectorMedia, type DirectorMediaState } from "./media";
 
 const CLIENT_TYPE_LABELS: Record<string, string> = {
   director: "Director",
@@ -13,22 +15,63 @@ function formatTime(iso: string): string {
   return Number.isNaN(date.getTime()) ? iso : date.toLocaleTimeString();
 }
 
-export interface AppProps {
-  connectionOptions?: DirectorConnectionOptions;
+function mediaStatusLabel(phase: DirectorMediaState["phase"]): string {
+  switch (phase) {
+    case "idle":
+      return "mic off";
+    case "connecting":
+      return "connecting";
+    case "ready":
+      return "ready";
+    case "publishing":
+      return "on air";
+    case "error":
+      return "media failed";
+  }
 }
 
-export function App({ connectionOptions }: AppProps = {}): JSX.Element {
+export interface AppProps {
+  connectionOptions?: DirectorConnectionOptions;
+  media?: DirectorMediaControls;
+}
+
+export interface DirectorMediaControls {
+  getState(): DirectorMediaState;
+  subscribe(listener: () => void): () => void;
+  setOpenMic(enabled: boolean): Promise<void>;
+  disconnect(): Promise<void>;
+}
+
+function createDefaultMedia(): DirectorMedia {
+  return new DirectorMedia({
+    createRoom: () => new LiveKitDirectorRoom(),
+    fetchToken: fetchDirectorToken,
+  });
+}
+
+export function App({ connectionOptions, media: mediaOverride }: AppProps = {}): JSX.Element {
   const connection = useMemo(
     () => new DirectorConnection(connectionOptions),
     // A new URL or socket factory means a new connection; other fields do not.
     [connectionOptions?.url, connectionOptions?.socketFactory],
   );
+  const media = useMemo(
+    () => mediaOverride ?? createDefaultMedia(),
+    [mediaOverride],
+  );
   const state = useSyncExternalStore(connection.subscribe, connection.getSnapshot);
+  const mediaState = useSyncExternalStore(media.subscribe, media.getState);
 
   useEffect(() => {
     connection.connect();
     return () => connection.disconnect();
   }, [connection]);
+
+  useEffect(() => {
+    return () => {
+      void media.disconnect();
+    };
+  }, [media]);
 
   const { phase, serverInfo, roster, error } = state;
 
@@ -80,6 +123,32 @@ export function App({ connectionOptions }: AppProps = {}): JSX.Element {
             </div>
           </dl>
         )}
+      </section>
+
+      <section className="card" aria-labelledby="audio-heading">
+        <div className="card__title">
+          <h2 id="audio-heading">Director audio</h2>
+          <span className={`status status--${mediaState.phase}`} data-testid="media-status">
+            {mediaStatusLabel(mediaState.phase)}
+          </span>
+        </div>
+        <p className="muted">
+          Open mic publishes continuously to the room. The Operators hear you through
+          their headsets.
+        </p>
+        {mediaState.error !== undefined && (
+          <div className="alert" role="alert">
+            <strong>Media problem</strong>
+            <p>{mediaState.error}</p>
+          </div>
+        )}
+        <button
+          type="button"
+          onClick={() => void media.setOpenMic(!mediaState.micEnabled)}
+          disabled={mediaState.phase === "connecting"}
+        >
+          {mediaState.micEnabled ? "Turn open mic off" : "Turn open mic on"}
+        </button>
       </section>
 
       <section className="card" aria-labelledby="roster-heading">

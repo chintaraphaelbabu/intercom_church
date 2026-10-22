@@ -1,0 +1,165 @@
+package com.churchcomms.operator.media
+
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+
+/** The Operator's media state, distinct from the control connection. */
+sealed interface MediaState {
+    data object Idle : MediaState
+    data object WebRtcConnecting : MediaState
+    data class Ready(
+        val outputRoute: String,
+        val directorAudio: Boolean,
+    ) : MediaState
+
+    data class Failed(val message: String) : MediaState
+}
+
+sealed interface MediaRoomEvent {
+    data class Connected(val outputRoute: String) : MediaRoomEvent
+    data class RouteChanged(val outputRoute: String) : MediaRoomEvent
+    data class DirectorAudioSubscribed(val participantName: String) : MediaRoomEvent
+    data class DirectorAudioUnsubscribed(val participantName: String) : MediaRoomEvent
+    data class Disconnected(val reason: String) : MediaRoomEvent
+}
+
+data class MediaToken(
+    val url: String,
+    val token: String,
+)
+
+interface MediaTokenClient {
+    suspend fun fetch(tokenUrl: String, name: String): MediaToken
+}
+
+/** The LiveKit room narrowed to what OperatorMedia needs. */
+interface OperatorRoom {
+    suspend fun connect(url: String, token: String)
+    fun disconnect()
+    fun setEventListener(listener: (MediaRoomEvent) -> Unit)
+}
+
+/**
+ * Owns the Operator's LiveKit connection and publishes the state the UI shows:
+ * WEBRTC_CONNECTING, READY, or MEDIA_FAILED. The control connection is owned by
+ * ControlClient and is intentionally separate.
+ */
+class OperatorMedia(
+    private val tokenClient: MediaTokenClient,
+    private val createRoom: () -> OperatorRoom,
+) {
+    private val _state = MutableStateFlow<MediaState>(MediaState.Idle)
+    val state: StateFlow<MediaState> = _state.asStateFlow()
+
+    private var room: OperatorRoom? = null
+    private var directorAudioSubscribed = false
+    private var connectionGeneration = 0
+
+    suspend fun connect(
+        tokenUrl: String,
+        preferredLivekitUrl: String?,
+        name: String,
+    ) {
+        disconnect()
+        val generation = connectionGeneration
+        _state.value = MediaState.WebRtcConnecting
+
+        val token = try {
+            tokenClient.fetch(tokenUrl = tokenUrl, name = name)
+        } catch (error: Exception) {
+            if (generation == connectionGeneration) {
+                _state.value = MediaState.Failed(
+                    "Could not get a media token: ${error.readableMessage()}",
+                )
+            }
+            return
+        }
+        if (generation != connectionGeneration) {
+            return
+        }
+
+        val mediaRoom = createRoom()
+        room = mediaRoom
+        mediaRoom.setEventListener { event -> handle(generation, event) }
+
+        try {
+            mediaRoom.connect(
+                url = preferredLivekitUrl?.takeIf { it.isNotBlank() } ?: token.url,
+                token = token.token,
+            )
+            if (generation != connectionGeneration) {
+                if (room === mediaRoom) {
+                    room = null
+                }
+                mediaRoom.disconnect()
+            }
+        } catch (error: Exception) {
+            if (room === mediaRoom) {
+                room = null
+            }
+            mediaRoom.disconnect()
+            if (generation == connectionGeneration) {
+                _state.value = MediaState.Failed(
+                    "LiveKit connection failed: ${error.readableMessage()}",
+                )
+            }
+        }
+    }
+
+    fun disconnect() {
+        connectionGeneration += 1
+        room?.disconnect()
+        room = null
+        directorAudioSubscribed = false
+        _state.value = MediaState.Idle
+    }
+
+    private fun handle(generation: Int, event: MediaRoomEvent) {
+        if (generation != connectionGeneration) {
+            return
+        }
+        when (event) {
+            is MediaRoomEvent.Connected -> {
+                _state.value = MediaState.Ready(
+                    outputRoute = event.outputRoute,
+                    directorAudio = directorAudioSubscribed,
+                )
+            }
+
+            is MediaRoomEvent.RouteChanged -> {
+                val current = _state.value
+                if (current is MediaState.Ready) {
+                    _state.value = current.copy(outputRoute = event.outputRoute)
+                }
+            }
+
+            is MediaRoomEvent.DirectorAudioSubscribed -> {
+                directorAudioSubscribed = true
+                val current = _state.value
+                if (current is MediaState.Ready) {
+                    _state.value = current.copy(directorAudio = true)
+                }
+            }
+
+            is MediaRoomEvent.DirectorAudioUnsubscribed -> {
+                directorAudioSubscribed = false
+                val current = _state.value
+                if (current is MediaState.Ready) {
+                    _state.value = current.copy(directorAudio = false)
+                }
+            }
+
+            is MediaRoomEvent.Disconnected -> {
+                room = null
+                directorAudioSubscribed = false
+                _state.value = MediaState.Failed(
+                    "Media connection closed: ${event.reason}",
+                )
+            }
+        }
+    }
+}
+
+private fun Exception.readableMessage(): String = message?.takeIf { it.isNotBlank() }
+    ?: this::class.java.simpleName

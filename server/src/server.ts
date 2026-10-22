@@ -14,6 +14,7 @@ import { WebSocket, WebSocketServer } from "ws";
 import type { RawData } from "ws";
 import { resolveConfig, type ConfigOverrides } from "./config.js";
 import type { Logger } from "./logger.js";
+import { createLiveKitTokenHandler } from "./livekit-token.js";
 import { advertise, type MdnsAdvertisement } from "./mdns.js";
 import { ClientRegistry } from "./roster.js";
 import { createStaticHandler } from "./static.js";
@@ -50,6 +51,7 @@ export function createChurchCommsServer(
   const registry = new ClientRegistry();
   const entries = new Map<WebSocket, RosterClient>();
   const staticHandler = createStaticHandler(config.webDist);
+  const tokenHandler = createLiveKitTokenHandler(config);
 
   let httpServer: http.Server | undefined;
   let webSocketServer: WebSocketServer | undefined;
@@ -174,13 +176,20 @@ export function createChurchCommsServer(
       started = true;
 
       httpServer = http.createServer((request, response) => {
-        void staticHandler(request, response).catch((error: unknown) => {
-          logger.error("Static request failed", error);
-          if (!response.headersSent) {
-            response.writeHead(500, { "Content-Type": "text/plain; charset=utf-8" });
-          }
-          response.end("Internal server error");
-        });
+        void tokenHandler(request, response)
+          .then((handled) => {
+            if (handled) {
+              return;
+            }
+            return staticHandler(request, response);
+          })
+          .catch((error: unknown) => {
+            logger.error("HTTP request failed", error);
+            if (!response.headersSent) {
+              response.writeHead(500, { "Content-Type": "text/plain; charset=utf-8" });
+            }
+            response.end("Internal server error");
+          });
       });
 
       webSocketServer = new WebSocketServer({ noServer: true, maxPayload: 64 * 1024 });
