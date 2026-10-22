@@ -7,5 +7,9 @@ android/build/
 android/app/build/
 android/local.properties
 android/.idea/
+android/keystore/
+android/keystore.properties
+release/
+logs/
 tools/livekit/
 *.log
