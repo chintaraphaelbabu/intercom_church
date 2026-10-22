@@ -169,6 +169,27 @@ class OperatorMediaTest {
         )
     }
 
+    @Test
+    fun `joins directly with credentials issued by the control protocol`() = runTest {
+        val room = FakeRoom()
+        val media = OperatorMedia(
+            tokenClient = object : MediaTokenClient {
+                override suspend fun fetch(tokenUrl: String, name: String): MediaToken =
+                    error("Direct credentials must not fetch another token")
+            },
+            createRoom = { room },
+        )
+
+        media.connectDirect(
+            url = "ws://192.168.137.1:7880",
+            token = "joined-livekit-token",
+        )
+
+        assertEquals("ws://192.168.137.1:7880", room.connectedUrl)
+        assertEquals("joined-livekit-token", room.connectedToken)
+        assertEquals(MediaState.WebRtcConnecting, media.state.value)
+    }
+
     private class FakeTokenClient : MediaTokenClient {
         override suspend fun fetch(tokenUrl: String, name: String): MediaToken =
             MediaToken(url = "ws://192.168.1.2:7880", token = "join-token")
@@ -177,11 +198,13 @@ class OperatorMediaTest {
     private class FakeRoom : OperatorRoom {
         private var listener: ((MediaRoomEvent) -> Unit)? = null
         var connectedUrl: String? = null
+        var connectedToken: String? = null
         var connectError: Exception? = null
 
         override suspend fun connect(url: String, token: String) {
             connectError?.let { throw it }
             connectedUrl = url
+            connectedToken = token
         }
 
         override fun disconnect() = Unit

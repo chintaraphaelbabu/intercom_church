@@ -27,6 +27,14 @@ sealed interface DiscoveryState {
     data class Failed(val message: String) : DiscoveryState
 }
 
+/** Discovery narrowed for the session controller and JVM tests. */
+interface DiscoverySource {
+    val state: StateFlow<DiscoveryState>
+    fun start()
+    fun stop()
+    fun retry()
+}
+
 /**
  * Finds the Director's laptop over mDNS/DNS-SD.
  *
@@ -39,10 +47,10 @@ sealed interface DiscoveryState {
  * never deliver SRV/TXT/A records. JmDNS owns the query/response cycle, so the
  * TXT records and IPv4 address arrive together.
  */
-class DiscoveryService(context: Context) {
+class DiscoveryService(context: Context) : DiscoverySource {
     private val appContext = context.applicationContext
     private val _state = MutableStateFlow<DiscoveryState>(DiscoveryState.Idle)
-    val state: StateFlow<DiscoveryState> = _state.asStateFlow()
+    override val state: StateFlow<DiscoveryState> = _state.asStateFlow()
 
     private val handler = Handler(Looper.getMainLooper())
     private val found = LinkedHashMap<String, DiscoveredServer>()
@@ -95,7 +103,7 @@ class DiscoveryService(context: Context) {
         }
     }
 
-    fun start() {
+    override fun start() {
         if (started) {
             return
         }
@@ -104,7 +112,7 @@ class DiscoveryService(context: Context) {
         startJmDns()
     }
 
-    fun stop() {
+    override fun stop() {
         started = false
         found.clear()
         _state.value = DiscoveryState.Idle
@@ -112,7 +120,7 @@ class DiscoveryService(context: Context) {
         releaseMulticastLock()
     }
 
-    fun retry() {
+    override fun retry() {
         if (!started) {
             start()
             return
