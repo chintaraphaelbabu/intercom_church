@@ -786,10 +786,11 @@ export function createChurchCommsServer(
         sendError(socket, {
           type: "error",
           code: "INVALID_MESSAGE",
-          message: "Send hello before joining a room.",
+          message: `Send hello before ${message.type}.`,
         });
         return;
       }
+
       await handleHello(socket, message);
       return;
     }
