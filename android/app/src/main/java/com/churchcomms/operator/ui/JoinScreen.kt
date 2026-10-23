@@ -14,6 +14,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -42,7 +43,25 @@ fun JoinScreen(
     ) {
         val failed = state.control as? ControlState.Failed
         if (failed != null) {
-            ErrorCard(failed.message)
+            val msg = failed.message
+            when {
+                msg.contains("Wi-Fi", ignoreCase = true) || msg.contains("network", ignoreCase = true) -> {
+                    ErrorCard("No Wi-Fi: check that Wi-Fi is on and you are on the church network.", title = "No Wi-Fi")
+                }
+                msg.contains("LAN", ignoreCase = true) || msg.contains("unreachable", ignoreCase = true) -> {
+                    ErrorCard("LAN unreachable: the director's laptop may be off or on a different network.", title = "LAN unreachable")
+                }
+                msg.contains("mDNS", ignoreCase = true) || msg.contains("discovery", ignoreCase = true) || msg.contains("_church-comms", ignoreCase = true) -> {
+                    ErrorCard("mDNS unavailable: multicast is blocked or the director's server is not broadcasting.", title = "mDNS unavailable")
+                }
+                msg.contains("control server", ignoreCase = true) || msg.contains("server", ignoreCase = true) -> {
+                    ErrorCard("Control server unreachable: connected but the server did not answer.", title = "Control server unreachable")
+                }
+                msg.contains("media", ignoreCase = true) || msg.contains("LiveKit", ignoreCase = true) -> {
+                    ErrorCard("Media failure: LiveKit could not establish the audio room.", title = "Media failure")
+                }
+                else -> ErrorCard(msg)
+            }
             Spacer(Modifier.height(12.dp))
             if (failed.canRetry) {
                 Button(
@@ -256,6 +275,27 @@ private fun DiscoveryContent(
                     Spacer(Modifier.height(10.dp))
                 }
             }
+        }
+    }
+
+    // Advanced — manual address only under Advanced
+    Spacer(Modifier.height(16.dp))
+    Surface(modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.surfaceVariant, shape = RoundedCornerShape(12.dp)) {
+        Column(Modifier.padding(12.dp)) {
+            Text("Advanced", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.height(4.dp))
+            Text("Manual server address (only when discovery fails)", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+            Spacer(Modifier.height(8.dp))
+            OutlinedTextField(
+                value = "192.168.1.10:8080",
+                onValueChange = {},
+                label = { Text("IP:port") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+                enabled = false,
+            )
+            Spacer(Modifier.height(4.dp))
+            Text("OxygenOS battery help: keep Wi-Fi active in battery settings to allow mDNS.", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall)
         }
     }
 }

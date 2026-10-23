@@ -4,7 +4,7 @@
 
 **Blocked by:** 03 — Pocket audio: locked screen and foreground service; 04 — Operator PTT reaches the Director
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [ ] Two phones and two browser test participants transmit simultaneously; each hears the other three.
 - [ ] Per-participant volume changes take effect locally within 200 ms.

@@ -4,7 +4,7 @@
 
 **Blocked by:** 03 — Pocket audio: locked screen and foreground service; 04 — Operator PTT reaches the Director
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [ ] Unplugging the headset mid-session stops output and shows a prompt; the speaker is not used automatically.
 - [ ] Reconnecting the headset resumes output.

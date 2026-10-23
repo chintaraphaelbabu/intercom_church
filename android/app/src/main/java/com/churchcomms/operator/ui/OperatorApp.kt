@@ -33,6 +33,8 @@ import com.churchcomms.operator.session.SessionState
 enum class OperatorScreen {
     Join,
     Session,
+    Mixer,
+    Live,
     Diagnostics,
 }
 
@@ -71,10 +73,10 @@ fun OperatorApp(
     LaunchedEffect(state.isSessionActive) {
         if (state.isSessionActive) {
             if (screen == OperatorScreen.Join) {
-                screen = OperatorScreen.Session
+                screen = OperatorScreen.Mixer
             }
             onRequestNotificationPermission()
-        } else if (screen == OperatorScreen.Session) {
+        } else if (screen == OperatorScreen.Session || screen == OperatorScreen.Mixer || screen == OperatorScreen.Live) {
             screen = OperatorScreen.Join
         }
     }
@@ -118,6 +120,16 @@ fun OperatorApp(
                         onClick = { screen = OperatorScreen.Session },
                     )
                     ScreenTab(
+                        label = "Mixer",
+                        selected = screen == OperatorScreen.Mixer,
+                        onClick = { screen = OperatorScreen.Mixer },
+                    )
+                    ScreenTab(
+                        label = "Live",
+                        selected = screen == OperatorScreen.Live,
+                        onClick = { screen = OperatorScreen.Live },
+                    )
+                    ScreenTab(
                         label = "Diagnostics",
                         selected = screen == OperatorScreen.Diagnostics,
                         onClick = { screen = OperatorScreen.Diagnostics },
@@ -129,6 +141,8 @@ fun OperatorApp(
                 when (screen) {
                     OperatorScreen.Join -> JoinScreen(state = state, actions = actions)
                     OperatorScreen.Session -> SessionScreen(state = state, actions = actions)
+                    OperatorScreen.Mixer -> MixerScreen(state = state, actions = actions, onGoLive = { screen = OperatorScreen.Live })
+                    OperatorScreen.Live -> LiveScreen(state = state, actions = actions, onBackToMixer = { screen = OperatorScreen.Mixer })
                     OperatorScreen.Diagnostics -> DiagnosticsScreen(state = state)
                 }
             }

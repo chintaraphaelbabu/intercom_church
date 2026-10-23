@@ -58,6 +58,9 @@ fun DiagnosticsScreen(state: SessionState) {
                 Fact("Camera", state.cameraNumber?.toString() ?: "-")
                 Fact("Operator name", state.displayName.ifBlank { "-" })
                 Fact("Foreground service", if (state.serviceRunning) "running" else "stopped")
+                Spacer(Modifier.height(8.dp))
+                Text("OxygenOS battery help", fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.titleSmall)
+                Text("Keep Wi-Fi on during sleep and disable battery optimization for Church Comms so mDNS continues. Go to Settings → Battery → App battery management → Church Comms → Unrestricted.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
             }
         }
         Spacer(Modifier.height(12.dp))
