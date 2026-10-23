@@ -65,14 +65,14 @@ fun MixerScreen(
             Text("No other operators in room.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
         } else {
             roster.forEach { op ->
-                RosterVolumeRow(name = op.name, camera = op.cameraNumber ?: 1, muted = op.muted)
+                RosterVolumeRow(name = op.name, camera = op.cameraNumber ?: 1, muted = op.muted, actions = actions)
             }
         }
     }
 }
 
 @Composable
-private fun RosterVolumeRow(name: String, camera: Int, muted: Boolean) {
+private fun RosterVolumeRow(name: String, camera: Int, muted: Boolean, actions: OperatorActions) {
     Surface(
         modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
         color = MaterialTheme.colorScheme.surfaceVariant,
@@ -88,7 +88,7 @@ private fun RosterVolumeRow(name: String, camera: Int, muted: Boolean) {
             }
             Spacer(Modifier.height(6.dp))
             Text("Level: ●●●○○", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
-            Slider(value = 0.75f, onValueChange = {}, modifier = Modifier.fillMaxWidth())
+            Slider(value = 0.75f, onValueChange = { actions.setParticipantVolume(name, it) }, modifier = Modifier.fillMaxWidth())
         }
     }
 }

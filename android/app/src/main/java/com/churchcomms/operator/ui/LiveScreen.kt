@@ -24,6 +24,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.churchcomms.operator.control.ControlState
 import com.churchcomms.operator.session.SessionState
+import com.churchcomms.operator.ui.PttButton
 
 @Composable
 fun LiveScreen(
@@ -33,6 +34,7 @@ fun LiveScreen(
 ) {
     val joined = state.control as? ControlState.Joined
     val me = joined?.room?.operators?.firstOrNull { it.id == joined.participantId }
+    val ready = state.media is com.churchcomms.operator.media.MediaState.Ready
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -59,24 +61,20 @@ fun LiveScreen(
 
         Spacer(Modifier.height(16.dp))
         // Large PTT
-        Surface(
+        PttButton(
+            transmitting = state.transmitting,
+            enabled = ready,
+            onPress = actions.pressPtt,
+            onRelease = actions.releasePtt,
             modifier = Modifier.fillMaxWidth(),
-            color = MaterialTheme.colorScheme.primary,
-            shape = RoundedCornerShape(14.dp),
-        ) {
-            Column(Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("PUSH TO TALK", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = Color.White)
-                Spacer(Modifier.height(4.dp))
-                Text(state.transmitting.toString(), color = Color(0xFFE7D2B3))
-            }
-        }
+        )
 
         Spacer(Modifier.height(16.dp))
         // Master volume + state
         Surface(modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.surface, shape = RoundedCornerShape(14.dp)) {
             Column(Modifier.padding(16.dp)) {
                 Text("Master volume", fontWeight = FontWeight.SemiBold)
-                Slider(value = 1f, onValueChange = {}, modifier = Modifier.fillMaxWidth())
+                Slider(value = 1f, onValueChange = { actions.setMasterVolume(it) }, modifier = Modifier.fillMaxWidth())
                 Spacer(Modifier.height(6.dp))
                 Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
                     Text("Connection: ${if (state.transmitting) "live" else "ready"}", style = MaterialTheme.typography.bodySmall)

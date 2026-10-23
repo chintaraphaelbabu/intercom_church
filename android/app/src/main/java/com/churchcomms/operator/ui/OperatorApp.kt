@@ -50,6 +50,8 @@ data class OperatorActions(
     val joinRoom: (String, Int) -> Unit,
     val pressPtt: () -> Unit = {},
     val releasePtt: () -> Unit = {},
+    val setParticipantVolume: (String, Float) -> Unit = { _, _ -> },
+    val setMasterVolume: (Float) -> Unit = { _ -> },
 )
 
 /**
