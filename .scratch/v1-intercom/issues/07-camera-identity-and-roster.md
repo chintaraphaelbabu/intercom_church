@@ -4,11 +4,13 @@
 
 **Blocked by:** 06 — Named rooms: create, list, join, end
 
-**Status:** claimed
+**Status:** resolved
 
-- [ ] The join screen shows free and taken camera numbers.
-- [ ] Claiming a taken number is rejected and the list refreshes.
-- [ ] The roster shows name, camera number, and connection state.
-- [ ] The Director is labelled Director and has no camera number.
-- [ ] Leaving releases the camera number for reuse.
-- [ ] An eleventh person is rejected with "room is full".
+- [x] The join screen shows free and taken camera numbers.
+- [x] Claiming a taken number is rejected and the list refreshes.
+- [x] The roster shows name, camera number, and connection state.
+- [x] The Director is labelled Director and has no camera number.
+- [x] Leaving releases the camera number for reuse.
+- [x] An eleventh person is rejected with "room is full".
+
+**Status:** resolved
