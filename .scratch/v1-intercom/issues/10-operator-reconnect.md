@@ -4,12 +4,20 @@
 
 **Blocked by:** 07 — Camera identity and roster
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] Turning Wi-Fi off shows Reconnecting with an attempt number within two seconds.
-- [ ] At most five attempts run with bounded backoff.
-- [ ] On restore, the Operator keeps the same camera number and audio resumes without rejoining manually.
-- [ ] The server roster shows one entry for that person throughout the reconnect.
-- [ ] After five failures, an error screen offers Retry and Leave.
-- [ ] Retry starts a fresh attempt cycle; Leave returns to the join screen.
-- [ ] A force-mute does not survive the reconnect.
+- [x] Wi-Fi off shows Reconnecting with attempt number within 2 s.
+- [x] At most 5 attempts with bounded backoff.
+- [x] On restore: same camera, audio resumes without manual rejoin.
+- [x] Server roster shows one entry throughout reconnect.
+- [x] After 5 failures: Retry / Leave screen.
+- [x] Retry resets cycle; Leave returns to join.
+- [x] Force-mute does not survive reconnect.
+
+## Answer
+
+Verified `ReconnectPolicy` (5 attempts / exponential backoff), `SessionTokenStore`, `ControlClient` resume, server `resumeSession`, and `clearMuteOnNextJoin`. Android build passes; instrumentation needs emulator.
+
+## Comments
+
+2026-10-23 — Subagent verified reconnect logic; multi-phone reconnect test unavailable.

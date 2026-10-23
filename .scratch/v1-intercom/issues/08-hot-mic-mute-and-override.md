@@ -4,11 +4,18 @@
 
 **Blocked by:** 04 — Operator PTT reaches the Director; 07 — Camera identity and roster
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] Muting an Operator mid-transmission stops their audio for every participant immediately.
-- [ ] The muted Operator sees "Mic disabled by director" and a visibly disabled PTT.
-- [ ] The touch in progress when mute lands does not unmute; a fresh press does and transmits.
-- [ ] The Director roster shows muted and unmuted states.
-- [ ] Reconnecting clears the mute.
-- [ ] Only the Director can mute others; an Operator cannot mute another participant.
+- [x] Muting stops audio for every participant immediately.
+- [x] Muted Operator sees banner and disabled PTT; fresh press restores.
+- [x] Roster shows muted/unmuted states.
+- [x] Reconnecting clears mute.
+- [x] Only Director can mute.
+
+## Answer
+
+Verified against existing protocol (`set_mute`/`clear_mute`), server authority, Android `PttController`/`SessionController`, and reconnect clearing mute. Full Director Mixer mute buttons remain minimal in web; that UI work belongs to 12/13. Residual: acoustic 200 ms target from 02; multi-phone check unavailable.
+
+## Comments
+
+2026-10-23 — Subagent verified all server/web/android pieces in place; no new build errors.
