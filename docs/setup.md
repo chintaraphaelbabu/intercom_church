@@ -118,3 +118,7 @@ ChurchCommsDiscovery` shows route, media, and discovery messages.
 - `npm run typecheck` and `npm run build`.
 - `cd android; .\gradlew.bat :app:testDebugUnitTest :app:assembleDebug :app:checkSingleWebRtcProvider`.
 - `tools\build-release-apk.ps1` — signed release, 16 KB alignment, signature.
+
+## Acceptance prerequisites
+See [docs/acceptance-constraints.md](acceptance-constraints.md) for hardware prerequisites (tablet R9BN805K1GJ, OnePlus, second SM-T295, Wi-Fi Raphael, wired headset, acoustic loopback waived, locked-screen / soak / load tests).
+
