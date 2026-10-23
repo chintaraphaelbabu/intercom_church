@@ -48,6 +48,7 @@ data class OperatorActions(
     val clearMute: () -> Unit,
     val setDisplayName: (String) -> Unit,
     val joinRoom: (String, Int) -> Unit,
+    val setCameraNumber: (Int) -> Unit = { _ -> },
     val pressPtt: () -> Unit = {},
     val releasePtt: () -> Unit = {},
     val setParticipantVolume: (String, Float) -> Unit = { _, _ -> },

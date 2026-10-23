@@ -17,6 +17,8 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -73,6 +75,7 @@ fun MixerScreen(
 
 @Composable
 private fun RosterVolumeRow(name: String, camera: Int, muted: Boolean, actions: OperatorActions) {
+    val volumeState = remember { mutableFloatStateOf(0.75f) }
     Surface(
         modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
         color = MaterialTheme.colorScheme.surfaceVariant,
@@ -88,7 +91,7 @@ private fun RosterVolumeRow(name: String, camera: Int, muted: Boolean, actions: 
             }
             Spacer(Modifier.height(6.dp))
             Text("Level: ●●●○○", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
-            Slider(value = 0.75f, onValueChange = { actions.setParticipantVolume(name, it) }, modifier = Modifier.fillMaxWidth())
+            Slider(value = volumeState.value, onValueChange = { volumeState.value = it; actions.setParticipantVolume(name, it) }, modifier = Modifier.fillMaxWidth())
         }
     }
 }

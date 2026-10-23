@@ -17,6 +17,8 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -32,6 +34,7 @@ fun LiveScreen(
     actions: OperatorActions,
     onBackToMixer: () -> Unit = {},
 ) {
+    val masterVolumeState = remember { mutableFloatStateOf(1f) }
     val joined = state.control as? ControlState.Joined
     val me = joined?.room?.operators?.firstOrNull { it.id == joined.participantId }
     val ready = state.media is com.churchcomms.operator.media.MediaState.Ready
@@ -74,7 +77,7 @@ fun LiveScreen(
         Surface(modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.surface, shape = RoundedCornerShape(14.dp)) {
             Column(Modifier.padding(16.dp)) {
                 Text("Master volume", fontWeight = FontWeight.SemiBold)
-                Slider(value = 1f, onValueChange = { actions.setMasterVolume(it) }, modifier = Modifier.fillMaxWidth())
+                Slider(value = masterVolumeState.value, onValueChange = { masterVolumeState.value = it; actions.setMasterVolume(it) }, modifier = Modifier.fillMaxWidth())
                 Spacer(Modifier.height(6.dp))
                 Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
                     Text("Connection: ${if (state.transmitting) "live" else "ready"}", style = MaterialTheme.typography.bodySmall)

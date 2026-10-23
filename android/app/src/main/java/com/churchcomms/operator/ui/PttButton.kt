@@ -46,6 +46,8 @@ fun PttButton(
     onRelease: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val debugTag = "[DEBUG-ptt]"
+    Log.d("ChurchComms.Ptt", "$debugTag press received (enabled=$enabled, transmitting=$transmitting)")
     val view = LocalView.current
     val currentOnPress by rememberUpdatedState(onPress)
     val currentOnRelease by rememberUpdatedState(onRelease)

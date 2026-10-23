@@ -166,6 +166,14 @@ private fun RoomLobby(
                 modifier = Modifier.fillMaxWidth(),
             )
             Spacer(Modifier.height(6.dp))
+            OutlinedTextField(
+                value = (state.cameraNumber ?: 1).toString(),
+                onValueChange = { actions.setCameraNumber(it.toIntOrNull() ?: 1) },
+                label = { Text("Camera number (1-10)") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Spacer(Modifier.height(6.dp))
             Text(
                 text = "Joining as Camera ${state.cameraNumber ?: 1}",
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
