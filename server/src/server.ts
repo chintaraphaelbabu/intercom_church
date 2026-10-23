@@ -38,6 +38,7 @@ import {
   type RoomRegistryOptions,
 } from "./rooms.js";
 import { createStaticHandler } from "./static.js";
+import { diagnosticsHandler } from "./diagnostics.js";
 
 const WS_PATH = "/ws";
 const DEFAULT_SWEEP_INTERVAL_MS = 1_000;
@@ -890,6 +891,9 @@ export function createChurchCommsServer(
             return;
           }
           if (await healthHandler(request, response)) {
+            return;
+          }
+          if (await diagnosticsHandler(request, response)) {
             return;
           }
           await staticHandler(request, response);

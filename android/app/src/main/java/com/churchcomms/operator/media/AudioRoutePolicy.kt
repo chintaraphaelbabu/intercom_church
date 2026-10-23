@@ -12,6 +12,7 @@ import com.twilio.audioswitch.AudioDevice
  */
 object AudioRoutePolicy {
     const val NO_ROUTE = "No audio route"
+    const val SPEAKER_SESSION_ONLY = "Speaker (session only)"
 
     fun preferredDeviceClasses(): List<Class<out AudioDevice>> = listOf(
         AudioDevice.WiredHeadset::class.java,
@@ -20,9 +21,19 @@ object AudioRoutePolicy {
         AudioDevice.Earpiece::class.java,
     )
 
-    fun routeLabel(selectedName: String?): String =
-        selectedName?.trim()?.takeIf { it.isNotEmpty() } ?: NO_ROUTE
+    fun isBluetoothSafe(deviceName: String?): Boolean {
+        if (deviceName == null) return true
+        return deviceName.contains("Bluetooth", ignoreCase = true) ||
+               !deviceName.contains("BAD", ignoreCase = true)
+    }
 
-    fun routeLogLine(selectedName: String?): String =
-        "Audio route: ${routeLabel(selectedName)}"
+    fun routeLabel(selectedName: String?, speakerSessionOnly: Boolean = false): String {
+        val base = selectedName?.trim()?.takeIf { it.isNotEmpty() } ?: NO_ROUTE
+        return if (speakerSessionOnly && (base.contains("Speaker", ignoreCase = true) || base == NO_ROUTE)) {
+            SPEAKER_SESSION_ONLY
+        } else base
+    }
+
+    fun routeLogLine(selectedName: String?, speakerSessionOnly: Boolean = false): String =
+        "Audio route: ${routeLabel(selectedName, speakerSessionOnly)}"
 }

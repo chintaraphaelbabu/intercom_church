@@ -32,4 +32,17 @@ class AudioRoutePolicyTest {
         assertEquals("No audio route", AudioRoutePolicy.routeLabel(null))
         assertEquals("Audio route: No audio route", AudioRoutePolicy.routeLogLine(null))
     }
+
+    @Test
+    fun `bluetooth safety allows normal names and rejects BAD`() {
+        assertEquals(true, AudioRoutePolicy.isBluetoothSafe("Bluetooth Headset"))
+        assertEquals(true, AudioRoutePolicy.isBluetoothSafe("Wired Headset"))
+        assertEquals(false, AudioRoutePolicy.isBluetoothSafe("BAD Bluetooth"))
+    }
+
+    @Test
+    fun `speaker session-only labels speaker explicitly`() {
+        assertEquals("Speaker (session only)", AudioRoutePolicy.routeLabel("Speakerphone", speakerSessionOnly = true))
+        assertEquals("Wired Headset", AudioRoutePolicy.routeLabel("Wired Headset", speakerSessionOnly = true))
+    }
 }

@@ -38,6 +38,9 @@ data class SessionState(
     val serviceRunning: Boolean = false,
     /** True only while the microphone track is confirmed unmuted. */
     val transmitting: Boolean = false,
+    val headsetDisconnected: Boolean = false,
+    val headsetReconnectPrompt: Boolean = false,
+    val speakerSessionOnly: Boolean = false,
 ) {
     val activeRoomName: String
         get() = (control as? ControlState.Joined)?.room?.name ?: roomName
@@ -112,6 +115,9 @@ class SessionController(
                 cameraNumber = selectionState.cameraNumber,
                 outputRoute = (mediaState as? MediaState.Ready)?.outputRoute,
                 serviceRunning = serviceIsRunning,
+                headsetDisconnected = false,
+                headsetReconnectPrompt = false,
+                speakerSessionOnly = false,
             )
         },
         ptt.transmitting,
