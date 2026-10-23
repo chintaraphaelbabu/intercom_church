@@ -46,6 +46,7 @@ interface OperatorRoom {
      * Implementations must not renegotiate or republish on later calls.
      */
     suspend fun setMicrophoneTransmitting(transmitting: Boolean)
+    fun setVolume(volume: Float) // [DEBUG-a4f3]
 }
 
 interface MediaController {
@@ -68,6 +69,7 @@ interface MediaController {
      * the state to MEDIA_FAILED.
      */
     suspend fun setMicrophoneTransmitting(transmitting: Boolean)
+    fun setVolume(volume: Float) // [DEBUG-a4f3]
 }
 
 /**
@@ -156,6 +158,11 @@ class OperatorMedia(
         room = null
         directorAudioSubscribed = false
         _state.value = MediaState.Idle
+    }
+
+    override fun setVolume(volume: Float) {
+        // [DEBUG-a4f3] Minimal hook: passes to underlying room if connected
+        (room as? LiveKitOperatorRoom)?.setVolume(volume)
     }
 
     override suspend fun setMicrophoneTransmitting(transmitting: Boolean) {

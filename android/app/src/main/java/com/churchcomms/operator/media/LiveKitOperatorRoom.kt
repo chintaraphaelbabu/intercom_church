@@ -122,6 +122,12 @@ class LiveKitOperatorRoom(private val context: Context) : OperatorRoom {
         Log.i(TAG, "LiveKit connected at $url")
     }
 
+    override fun setVolume(volume: Float) {
+        Log.d(TAG, "[DEBUG-a4f3] setVolume=$volume (LiveKit SDK: apply to room tracks if available)")
+        // LiveKit SDK: remote track volume could be applied here via room.remoteParticipants
+        // Minimal hook for slider functionality.
+    }
+
     override suspend fun setMicrophoneTransmitting(transmitting: Boolean) {
         microphoneMutex.withLock {
             val room = room ?: throw IllegalStateException("LiveKit is not connected.")
