@@ -68,6 +68,8 @@ class MainActivity : ComponentActivity() {
                         setDisplayName = session::setDisplayName,
                         joinRoom = ::joinRoomWithMicrophone,
                         setCameraNumber = session::setCameraNumber,
+                        setParticipantVolume = session::setParticipantVolume,
+                        setMasterVolume = session::setMasterVolume,
                         pressPtt = session::pressPtt,
                         releasePtt = session::releasePtt,
                     ),

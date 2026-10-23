@@ -41,6 +41,8 @@ data class SessionState(
     val headsetDisconnected: Boolean = false,
     val headsetReconnectPrompt: Boolean = false,
     val speakerSessionOnly: Boolean = false,
+    val participantVolumes: Map<String, Float> = emptyMap(),
+    val masterVolume: Float = 1f,
 ) {
     val activeRoomName: String
         get() = (control as? ControlState.Joined)?.room?.name ?: roomName
@@ -90,6 +92,12 @@ class SessionController(
     private val selection = MutableStateFlow(
         JoinSelection(displayName = defaultDisplayName),
     )
+    private val volumeState = MutableStateFlow(
+        Pair(
+            emptyMap<String, Float>(),
+            1f,
+        ),
+    )
     private val serviceRunning = MutableStateFlow(false)
     private val ptt = PttController(
         media = media,
@@ -118,6 +126,8 @@ class SessionController(
                 headsetDisconnected = false,
                 headsetReconnectPrompt = false,
                 speakerSessionOnly = false,
+                participantVolumes = volumeState.value.first,
+                masterVolume = volumeState.value.second,
             )
         },
         ptt.transmitting,
@@ -249,6 +259,14 @@ class SessionController(
     fun changeCamera(cameraNumber: Int) {
         selection.update { it.copy(cameraNumber = cameraNumber) }
         control.setCamera(cameraNumber)
+    }
+
+    fun setParticipantVolume(name: String, volume: Float) {
+        volumeState.value = (volumeState.value.first + (name to volume)) to volumeState.value.second
+    }
+
+    fun setMasterVolume(volume: Float) {
+        volumeState.value = volumeState.value.copy(second = volume)
     }
 
     fun setMute(participantId: String, muted: Boolean) {
