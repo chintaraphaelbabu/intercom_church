@@ -75,6 +75,46 @@ class SessionControllerTest {
     }
 
     @Test
+    fun `a repeated joined state does not duplicate the foreground service`() = runTest {
+        val media = FakeMedia()
+        val control = FakeControl()
+        val service = FakeService()
+        val controller = controller(FakeDiscovery(), control, media, service, this)
+
+        // Activity recreation never touches the controller, but roster updates
+        // re-emit Joined. The service must start once and media must not
+        // reconnect, or the audio would be interrupted.
+        control.state.value = joined()
+        advanceUntilIdle()
+        control.state.value = joined()
+        advanceUntilIdle()
+
+        assertEquals(1, service.startCalls)
+        assertEquals(1, media.directConnects.size)
+        assertEquals("MEDIA", service.roomName)
+        assertTrue(service.running)
+    }
+
+    @Test
+    fun `reconnecting and rejoining the same room keeps the service and its audio`() = runTest {
+        val media = FakeMedia()
+        val control = FakeControl()
+        val service = FakeService()
+        val controller = controller(FakeDiscovery(), control, media, service, this)
+
+        control.state.value = joined()
+        advanceUntilIdle()
+        control.state.value = ControlState.Reconnecting(1, 5)
+        advanceUntilIdle()
+        control.state.value = joined()
+        advanceUntilIdle()
+
+        assertEquals(1, service.startCalls)
+        assertEquals(1, media.directConnects.size)
+        assertTrue(service.running)
+    }
+
+    @Test
     fun `a connected lobby exposes rooms without starting a session`() = runTest {
         val control = FakeControl()
         val service = FakeService()
@@ -522,8 +562,10 @@ class SessionControllerTest {
     private class FakeService : SessionServiceGateway {
         var roomName: String? = null
         var running = false
+        var startCalls = 0
 
         override fun start(roomName: String) {
+            startCalls += 1
             this.roomName = roomName
             running = true
         }

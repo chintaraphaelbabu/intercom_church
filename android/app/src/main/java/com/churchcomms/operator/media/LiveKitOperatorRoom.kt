@@ -22,9 +22,9 @@ private const val TAG = "ChurchComms.Audio"
 /**
  * LiveKit's Android room adapted to the narrow [OperatorRoom] seam.
  *
- * LiveKit renders subscribed audio itself through its AudioSwitchHandler, whose
- * default preference order is Bluetooth, wired headset, speakerphone, earpiece.
- * We only report which route it selected and which remote tracks arrived.
+ * LiveKit renders subscribed audio itself through its AudioSwitchHandler. The
+ * preference order is set by [AudioRoutePolicy] so a wired headset is selected
+ * whenever it is present, and every active route is logged for diagnostics.
  */
 class LiveKitOperatorRoom(private val context: Context) : OperatorRoom {
     private var room: Room? = null
@@ -46,11 +46,13 @@ class LiveKitOperatorRoom(private val context: Context) : OperatorRoom {
             echoCancellation = true,
             autoGainControl = true,
         )
+        // Wired first: LiveKit's default would prefer a Bluetooth headset.
+        room.audioSwitchHandler?.preferredDeviceList =
+            AudioRoutePolicy.preferredDeviceClasses()
 
         room.audioSwitchHandler?.registerAudioDeviceChangeListener { _, selected ->
-            val route = selected?.name ?: "No audio route"
-            Log.i(TAG, "Audio route: $route")
-            listener?.invoke(MediaRoomEvent.RouteChanged(route))
+            logRoute(selected?.name)
+            listener?.invoke(MediaRoomEvent.RouteChanged(routeLabel(selected?.name)))
         }
 
         val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
@@ -66,9 +68,10 @@ class LiveKitOperatorRoom(private val context: Context) : OperatorRoom {
                         }.onFailure { error ->
                             Log.w(TAG, "Could not pre-publish the microphone", error)
                         }
-                        listener?.invoke(
-                            MediaRoomEvent.Connected(routeName(room)),
-                        )
+                        // Log the route the handler settled on, not only changes.
+                        val route = routeLabel(room.audioSwitchHandler?.selectedAudioDevice?.name)
+                        Log.i(TAG, AudioRoutePolicy.routeLogLine(route))
+                        listener?.invoke(MediaRoomEvent.Connected(route))
                     }
 
                     is RoomEvent.TrackSubscribed -> {
@@ -165,6 +168,10 @@ class LiveKitOperatorRoom(private val context: Context) : OperatorRoom {
         Log.i(TAG, "LiveKit disconnected")
     }
 
-    private fun routeName(room: Room): String =
-        room.audioSwitchHandler?.selectedAudioDevice?.name ?: "No audio route"
+    private fun logRoute(selectedName: String?) {
+        Log.i(TAG, AudioRoutePolicy.routeLogLine(selectedName))
+    }
+
+    private fun routeLabel(selectedName: String?): String =
+        AudioRoutePolicy.routeLabel(selectedName)
 }
