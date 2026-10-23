@@ -51,8 +51,8 @@ fun LiveScreen(
                 Text("Operator: ${me?.name ?: state.displayName.ifBlank { "You" }}", style = MaterialTheme.typography.bodyMedium)
                 Text("Camera: ${me?.cameraNumber ?: state.cameraNumber ?: 1}", style = MaterialTheme.typography.bodyMedium)
                 Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-                    Chip(label = joined?.room?.status ?: "connected", accent = joined?.room?.status != "grace")
-                    Chip(label = if (state.transmitting) "TRANSMITTING" else "listening", accent = state.transmitting)
+                    StatusChip(label = joined?.room?.status ?: "connected", accent = joined?.room?.status != "grace")
+                    StatusChip(label = if (state.transmitting) "TRANSMITTING" else "listening", accent = state.transmitting)
                 }
             }
         }
@@ -80,7 +80,7 @@ fun LiveScreen(
                 Spacer(Modifier.height(6.dp))
                 Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
                     Text("Connection: ${if (state.transmitting) "live" else "ready"}", style = MaterialTheme.typography.bodySmall)
-                    Text("Audio: ${if (state.media == com.churchcomms.operator.media.MediaState.Ready) "ready" else "connecting"}", style = MaterialTheme.typography.bodySmall)
+                    Text("Audio: ${if (state.media is com.churchcomms.operator.media.MediaState.Ready) "ready" else "connecting"}", style = MaterialTheme.typography.bodySmall)
                 }
             }
         }
@@ -104,7 +104,7 @@ fun LiveScreen(
 }
 
 @Composable
-private fun Chip(label: String, accent: Boolean = true) {
+private fun StatusChip(label: String, accent: Boolean = true) {
     Surface(
         color = if (accent) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
         shape = RoundedCornerShape(8.dp),
