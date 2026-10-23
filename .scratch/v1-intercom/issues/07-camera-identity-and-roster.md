@@ -4,7 +4,7 @@
 
 **Blocked by:** 06 — Named rooms: create, list, join, end
 
-**Status:** ready-for-agent
+**Status:** claimed
 
 - [ ] The join screen shows free and taken camera numbers.
 - [ ] Claiming a taken number is rejected and the list refreshes.

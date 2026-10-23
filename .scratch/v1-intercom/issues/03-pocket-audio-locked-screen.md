@@ -4,7 +4,7 @@
 
 **Blocked by:** 02 — The Director's voice reaches the Operator's phone
 
-**Status:** ready-for-agent
+**Status:** claimed
 
 - [ ] A 30-minute locked-screen session has continuous audio with no crash or ANR.
 - [ ] Audio continues when the app is backgrounded and the screen is off.
