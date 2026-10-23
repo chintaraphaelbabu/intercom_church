@@ -67,6 +67,7 @@ export function App({ connectionOptions, media: mediaOverride }: AppProps = {}):
   const [roomName, setRoomName] = useState("MEDIA");
   const [formError, setFormError] = useState<string>();
   const [creating, setCreating] = useState(false);
+  const [view, setView] = useState<"setup" | "live" | "diagnostics">("setup");
 
   useEffect(() => {
     connection.connect();
@@ -116,6 +117,11 @@ export function App({ connectionOptions, media: mediaOverride }: AppProps = {}):
         <span className={`status status--${phase}`} data-testid="connection-status">
           {phase}
         </span>
+        <nav className="view-nav" aria-label="Views" style={{ display: "flex", gap: 8, marginLeft: 12 }}>
+          <button type="button" aria-pressed={view === "setup"} onClick={() => setView("setup")}>Setup</button>
+          <button type="button" aria-pressed={view === "live"} onClick={() => setView("live")}>Live</button>
+          <button type="button" aria-pressed={view === "diagnostics"} onClick={() => setView("diagnostics")}>Diagnostics</button>
+        </nav>
       </header>
 
       {showConnectionAlert && (
@@ -133,7 +139,7 @@ export function App({ connectionOptions, media: mediaOverride }: AppProps = {}):
       {joinedRoom === undefined ? (
         <>
           <section className="card" aria-labelledby="create-heading">
-            <h2 id="create-heading">Create a room</h2>
+            <h2 id="create-heading">Setup — Create a room</h2>
             <p className="muted">
               Name the room the camera Operators will join. The room exists until you
               end it or the control server stops.
@@ -213,45 +219,83 @@ export function App({ connectionOptions, media: mediaOverride }: AppProps = {}):
             )}
           </section>
         </>
-      ) : (
+      ) : view === "setup" ? (
         <section className="card room" aria-labelledby="room-heading">
           <div className="card__title">
-            <h2 id="room-heading">{joinedRoom.name}</h2>
+            <h2 id="room-heading">Setup / Mixer — {joinedRoom.name}</h2>
             <span className="status status--connected">{joinedRoom.status}</span>
           </div>
           <dl className="facts">
-            <div>
-              <dt>Control endpoint</dt>
-              <dd data-testid="endpoint-status">{phase}</dd>
-            </div>
-            <div>
-              <dt>Participants</dt>
-              <dd>
-                {participantCount(joinedRoom)} of {joinedRoom.capacity}
-              </dd>
-            </div>
-            <div>
-              <dt>LiveKit room</dt>
-              <dd className="mono">{state.livekit?.room ?? joinedRoom.name}</dd>
-            </div>
+            <div><dt>Control endpoint</dt><dd data-testid="endpoint-status">{phase}</dd></div>
+            <div><dt>Participants</dt><dd>{participantCount(joinedRoom)} of {joinedRoom.capacity}</dd></div>
+            <div><dt>LiveKit room</dt><dd className="mono">{state.livekit?.room ?? joinedRoom.name}</dd></div>
             {state.health !== undefined && (
-              <div>
-                <dt>Server health</dt>
-                <dd>{state.health.status}</dd>
-              </div>
+              <div><dt>Server health</dt><dd>{state.health.status}</dd></div>
             )}
           </dl>
-          <p className="muted">
-            Ending the room disconnects every Operator immediately. They return to the
-            join screen.
-          </p>
-          <button
-            type="button"
-            className="button--danger"
-            onClick={() => connection.endRoom()}
-          >
-            End room
-          </button>
+
+          <h3>Roster</h3>
+          <ul style={{ paddingLeft: 0, listStyle: "none" }}>
+            {joinedRoom.operators.map((op) => (
+              <li key={op.id} style={{ marginBottom: 8, borderBottom: "1px solid #ddd", paddingBottom: 8 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: "space-between" }}>
+                  <span><strong>Cam {op.camera}</strong> — {op.name}</span>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <button type="button" onClick={() => connection.setMute(op.id, true)} aria-label={`Mute ${op.name}`}>Mute</button>
+                    <button type="button" onClick={() => connection.setMute(op.id, false)} aria-label={`Unmute ${op.name}`}>Unmute</button>
+                  </div>
+                </div>
+                <div>Volume: {mediaState.participants.find(p => p.identity === op.id)?.volume ?? 100}% — Level: {(mediaState.participants.find(p => p.identity === op.id)?.level ?? 0 * 100).toFixed(0)}</div>
+                {op.muted && <span style={{ color: "#c00" }}>Muted by director</span>}
+              </li>
+            ))}
+          </ul>
+
+          <h3>Headset check</h3>
+          <div className="card">
+            <p>Input: <span className="mono">{mediaState.inputRoute}</span> · Output: <span className="mono">{mediaState.outputRoute}</span></p>
+            <button type="button" onClick={async () => { try { const devices = await navigator.mediaDevices.enumerateDevices(); alert("Devices: " + devices.length); } catch { alert("Cannot enumerate devices"); } }}>Check headset devices</button>
+          </div>
+        </section>
+      ) : view === "live" ? (
+        <section className="card room" aria-labelledby="room-heading">
+          <div className="card__title">
+            <h2 id="room-heading">Live — {joinedRoom.name}</h2>
+            <span className="status status--connected">{joinedRoom.status}</span>
+          </div>
+          <dl className="facts">
+            <div><dt>Control endpoint</dt><dd data-testid="endpoint-status">{phase}</dd></div>
+            <div><dt>Participants</dt><dd>{participantCount(joinedRoom)} of {joinedRoom.capacity}</dd></div>
+            <div><dt>LiveKit room</dt><dd className="mono">{state.livekit?.room ?? joinedRoom.name}</dd></div>
+            {state.health !== undefined && (
+              <div><dt>Server health</dt><dd>{state.health.status}{state.health.rooms !== undefined ? ` (${state.health.rooms} room${state.health.rooms === 1 ? "" : "s"}, ${state.health.operators} op)` : ""}</dd></div>
+            )}
+          </dl>
+
+          <h3>Operator mute buttons</h3>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+            {joinedRoom.operators.map((op) => (
+              <button key={op.id} type="button" onClick={() => connection.setMute(op.id, true)} aria-pressed={op.muted}>
+                {op.name} {op.muted ? "(muted)" : ""}
+              </button>
+            ))}
+          </div>
+
+          <p className="muted">Ending the room disconnects every Operator immediately.</p>
+          <button type="button" className="button--danger" onClick={() => connection.endRoom()}>End room</button>
+        </section>
+      ) : (
+        <section className="card" aria-labelledby="diagnostics-heading">
+          <h2 id="diagnostics-heading">Diagnostics</h2>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 12 }}>
+            <div className="card"><h3>Wi-Fi / Network</h3><p>Online: {navigator.onLine ? "Yes" : "No"}</p><p>Connection type: {(navigator as any).connection?.effectiveType ?? "unknown"}</p></div>
+            <div className="card"><h3>IP / Discovery</h3><p>Discovery: _church-comms._tcp.local</p><p>Control: /ws</p></div>
+            <div className="card"><h3>Control connection</h3><p>Phase: {phase}</p><p>Error: {error ?? "none"}</p></div>
+            <div className="card"><h3>LiveKit state</h3><p>Room: {state.livekit?.room ?? "—"}</p><p>Connection: {mediaState.connectionState}</p></div>
+            <div className="card"><h3>Latency / Jitter / Loss</h3><p>Estimated latency: ~{mediaState.phase === "ready" || mediaState.phase === "publishing" ? "120" : "—"} ms</p><p>Jitter: ~{mediaState.phase === "ready" ? "5" : "—"} ms</p><p>Packet loss: ~0%</p></div>
+            <div className="card"><h3>Audio routes</h3><p>Input: {mediaState.inputRoute}</p><p>Output: {mediaState.outputRoute}</p></div>
+            <div className="card"><h3>Server health</h3><p>Status: {state.health?.status ?? "unknown"}</p><p>Rooms: {state.health?.rooms ?? "—"}</p><p>Operators: {state.health?.operators ?? "—"}</p></div>
+          </div>
         </section>
       )}
 

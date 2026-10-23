@@ -168,7 +168,7 @@ export interface RoomClosedMessage {
   reason: RoomClosedReason;
 }
 
-export type ServerHealthStatus = "running" | "degraded";
+export type ServerHealthStatus = "running" | "room_active" | "degraded";
 
 export interface ServerHealthMessage {
   type: "server_health";
