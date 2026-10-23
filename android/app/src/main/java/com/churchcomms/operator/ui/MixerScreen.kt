@@ -67,15 +67,21 @@ fun MixerScreen(
             Text("No other operators in room.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
         } else {
             roster.forEach { op ->
-                RosterVolumeRow(name = op.name, camera = op.cameraNumber ?: 1, muted = op.muted, actions = actions)
+                RosterVolumeRow(
+                    name = op.name,
+                    camera = op.cameraNumber ?: 1,
+                    muted = op.muted,
+                    volume = state.participantVolumes[op.name] ?: 0.75f,
+                    actions = actions,
+                )
             }
         }
     }
 }
 
 @Composable
-private fun RosterVolumeRow(name: String, camera: Int, muted: Boolean, actions: OperatorActions) {
-    val volumeState = remember { mutableFloatStateOf(0.75f) }
+private fun RosterVolumeRow(name: String, camera: Int, muted: Boolean, volume: Float, actions: OperatorActions) {
+    val volumeState = remember { mutableFloatStateOf(volume) }
     Surface(
         modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
         color = MaterialTheme.colorScheme.surfaceVariant,
