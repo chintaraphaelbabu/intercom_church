@@ -158,6 +158,8 @@ export class DirectorMedia {
     if (this.room !== undefined) {
       return;
     }
+    // Reset volumes on a fresh session start.
+    this.update({ masterVolume: 100, participants: [] });
     await this.ensureConnected(credentials);
   }
 
@@ -250,6 +252,7 @@ export class DirectorMedia {
       error: undefined,
       connectionState: "idle",
       participants: [],
+      masterVolume: 100,
     });
   }
 

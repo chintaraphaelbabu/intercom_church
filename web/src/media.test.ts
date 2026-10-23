@@ -323,6 +323,37 @@ describe("DirectorMedia", () => {
     expect(media.getState().outputRoute).toBe("Headset earphones");
   });
 
+  it("resets master and participant volumes on a new connect (session start)", async () => {
+    const room = new FakeRoom();
+    const { media } = createMedia(room);
+    await media.connect({ url: "ws://room", token: "token" });
+    room.addParticipant("op-1", "Cam 1");
+    media.setMasterVolume(40);
+    media.setParticipantVolume("op-1", 30);
+    expect(media.getState().masterVolume).toBe(40);
+    await media.disconnect();
+    expect(media.getState().masterVolume).toBe(100);
+    expect(media.getState().participants).toEqual([]);
+  });
+
+  it("supports two browser test participants in a four-way mix", async () => {
+    const room = new FakeRoom();
+    const { media } = createMedia(room);
+    await media.connect({ url: "ws://room", token: "token" });
+    // Two operators + director = 3 local; browser tests add 2 more = 5 total for capacity test
+    const op1 = room.addParticipant("op-1", "Camera 1");
+    const op2 = room.addParticipant("op-2", "Camera 2");
+    const test1 = room.addParticipant("test-a", "Browser Test A");
+    const test2 = room.addParticipant("test-b", "Browser Test B");
+    media.setMasterVolume(75);
+    media.setParticipantVolume("op-1", 60);
+    media.setParticipantVolume("test-a", 80);
+    expect(op1.volume).toBeCloseTo(0.45); // 0.6 * 0.75
+    expect(test1.volume).toBeCloseTo(0.6); // 0.8 * 0.75
+    expect(test2.volume).toBeCloseTo(0.75); // default 100 * 0.75
+    expect(media.getState().participants.length).toBe(4);
+  });
+
   it("reports an unexpected LiveKit disconnect as a media failure", async () => {
     const room = new FakeRoom();
     const { media } = createMedia(room);
