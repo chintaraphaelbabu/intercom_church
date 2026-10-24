@@ -245,7 +245,34 @@ export function App({ connectionOptions, media: mediaOverride }: AppProps = {}):
                     <button type="button" onClick={() => connection.setMute(op.id, false)} aria-label={`Unmute ${op.name}`}>Unmute</button>
                   </div>
                 </div>
-                <div>Volume: {mediaState.participants.find(p => p.identity === op.id)?.volume ?? 100}% — Level: {(mediaState.participants.find(p => p.identity === op.id)?.level ?? 0 * 100).toFixed(0)}</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                  <label htmlFor={`volume-${op.id}`} style={{ fontSize: 12 }}>Volume</label>
+                  <input
+                    id={`volume-${op.id}`}
+                    type="range"
+                    min={0}
+                    max={100}
+                    step={1}
+                    value={mediaState.participants.find(p => p.identity === op.id)?.volume ?? 100}
+                    onChange={(e) => media.setParticipantVolume(op.id, Number(e.target.value))}
+                    style={{ flex: "1 1 120px" }}
+                  />
+                  <span style={{ fontSize: 11, minWidth: 36 }}>
+                    {mediaState.participants.find(p => p.identity === op.id)?.volume ?? 100}%
+                  </span>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ fontSize: 12 }}>Level:</span>
+                  <div style={{ width: 60, height: 12, background: "#e0e0e0", border: "1px solid #ccc", borderRadius: 2, overflow: "hidden" }}>
+                    <div
+                      style={{
+                        width: `${Math.round((mediaState.participants.find(p => p.identity === op.id)?.level ?? 0) * 100)}%`,
+                        height: "100%",
+                        background: "#2a7",
+                      }}
+                    />
+                  </div>
+                </div>
                 {op.muted && <span style={{ color: "#c00" }}>Muted by director</span>}
               </li>
             ))}
