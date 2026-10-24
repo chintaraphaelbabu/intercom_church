@@ -52,6 +52,35 @@ function createDefaultMedia(): DirectorMedia {
   });
 }
 
+function MasterVolume({
+  masterVolume,
+  onChange,
+  label = "Master",
+  id = "master-volume",
+}: {
+  masterVolume: number;
+  onChange: (v: number) => void;
+  label?: string;
+  id?: string;
+}): JSX.Element {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+      <label htmlFor={id} style={{ fontSize: 12 }}>{label}</label>
+      <input
+        id={id}
+        type="range"
+        min={0}
+        max={100}
+        step={1}
+        value={masterVolume}
+        onChange={(e) => onChange(Number(e.target.value))}
+        style={{ flex: "1 1 120px" }}
+      />
+      <span style={{ fontSize: 11, minWidth: 36 }}>{masterVolume}%</span>
+    </div>
+  );
+}
+
 export function App({ connectionOptions, media: mediaOverride }: AppProps = {}): JSX.Element {
   const connection = useMemo(
     () => new DirectorConnection(connectionOptions),
@@ -247,6 +276,7 @@ export function App({ connectionOptions, media: mediaOverride }: AppProps = {}):
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                   <label htmlFor={`volume-${op.id}`} style={{ fontSize: 12 }}>Volume</label>
+                  {/* 200 ms target for volume slider updates */}
                   <input
                     id={`volume-${op.id}`}
                     type="range"
@@ -279,20 +309,7 @@ export function App({ connectionOptions, media: mediaOverride }: AppProps = {}):
           </ul>
 
           <h3>Master volume</h3>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-            <label htmlFor="master-volume" style={{ fontSize: 12 }}>Master</label>
-            <input
-              id="master-volume"
-              type="range"
-              min={0}
-              max={100}
-              step={1}
-              value={mediaState.masterVolume}
-              onChange={(e) => media.setMasterVolume(Number(e.target.value))}
-              style={{ flex: "1 1 120px" }}
-            />
-            <span style={{ fontSize: 11, minWidth: 36 }}>{mediaState.masterVolume}%</span>
-          </div>
+          <MasterVolume masterVolume={mediaState.masterVolume} onChange={(v) => media.setMasterVolume(v)} />
 
           <h3>Headset check</h3>
           <div className="card">
@@ -325,19 +342,8 @@ export function App({ connectionOptions, media: mediaOverride }: AppProps = {}):
           </div>
 
           <p className="muted">Ending the room disconnects every Operator immediately.</p>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
-            <label htmlFor="master-volume-live" style={{ fontSize: 12 }}>Master volume</label>
-            <input
-              id="master-volume-live"
-              type="range"
-              min={0}
-              max={100}
-              step={1}
-              value={mediaState.masterVolume}
-              onChange={(e) => media.setMasterVolume(Number(e.target.value))}
-              style={{ flex: "1 1 120px" }}
-            />
-            <span style={{ fontSize: 11, minWidth: 36 }}>{mediaState.masterVolume}%</span>
+          <div style={{ marginBottom: 8 }}>
+            <MasterVolume masterVolume={mediaState.masterVolume} onChange={(v) => media.setMasterVolume(v)} label="Master volume" id="master-volume-live" />
           </div>
           <button type="button" className="button--danger" onClick={() => connection.endRoom()}>End room</button>
         </section>
@@ -349,7 +355,7 @@ export function App({ connectionOptions, media: mediaOverride }: AppProps = {}):
             <div className="card"><h3>IP / Discovery</h3><p>Discovery: _church-comms._tcp.local</p><p>Control: /ws</p></div>
             <div className="card"><h3>Control connection</h3><p>Phase: {phase}</p><p>Error: {error ?? "none"}</p></div>
             <div className="card"><h3>LiveKit state</h3><p>Room: {state.livekit?.room ?? "—"}</p><p>Connection: {mediaState.connectionState}</p></div>
-            <div className="card"><h3>Latency / Jitter / Loss</h3><p>Connection: {mediaState.connectionState}</p><p>Latency: — ms (unmeasured)</p><p>Jitter: — ms (unmeasured)</p><p>Packet loss: —% (unmeasured)</p></div>
+            <div className="card"><h3>Latency / Jitter / Loss</h3><p>Requires LiveKit stats not yet exposed in mediaState.</p><p>Latency: — ms (unmeasured)</p><p>Jitter: — ms (unmeasured)</p><p>Packet loss: —% (unmeasured)</p></div>
             <div className="card"><h3>Audio routes</h3><p>Input: {mediaState.inputRoute}</p><p>Output: {mediaState.outputRoute}</p></div>
             <div className="card"><h3>Server health</h3><p>Status: {state.health?.status ?? "unknown"}</p><p>Rooms: {state.health?.rooms ?? "—"}</p><p>Operators: {state.health?.operators ?? "—"}</p></div>
           </div>
