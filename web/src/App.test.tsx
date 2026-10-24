@@ -144,7 +144,7 @@ const joinedRoom: JoinedMessage = {
   participantId: "director-1",
   sessionToken: "session-1",
   room: {
-    name: "Setup / Mixer - ...",
+    name: "MEDIA",
     status: "open",
     capacity: 11,
     director: {
@@ -170,7 +170,7 @@ const joinedRoom: JoinedMessage = {
   },
   livekit: {
     url: "ws://192.168.1.20:7880",
-    room: "Setup / Mixer - ...",
+    room: "MEDIA",
     token: "director-token",
     expiresAt: "2026-10-21T11:00:00.000Z",
   },
@@ -180,7 +180,7 @@ const roomList: RoomListMessage = {
   type: "room_list",
   rooms: [
     {
-      name: "Setup / Mixer - ...",
+      name: "MEDIA",
       status: "open",
       directorPresent: true,
       operatorCount: 0,
@@ -215,16 +215,17 @@ describe("Director room workflow", () => {
 
     expect(sentMessages(socket)).toContainEqual({
       type: "create_room",
-      name: "Setup / Mixer - ...",
+      name: "MEDIA",
     });
     expect(screen.getByText("Creating room…")).toBeInTheDocument();
 
     act(() => socket.receive(joinedRoom));
 
-    expect(screen.getByRole("heading", { name: "Setup / Mixer - ..." })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Setup / Mixer — MEDIA" })).toBeInTheDocument();
     expect(screen.getByTestId("endpoint-status")).toHaveTextContent("connected");
+    fireEvent.click(screen.getByRole("button", { name: "Live" }));
     expect(screen.getByRole("button", { name: "End room" })).toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: "Setup - Create a room" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Setup — Create a room" })).not.toBeInTheDocument();
     expect(storage.getItem(DIRECTOR_SESSION_STORAGE_KEY)).toBe("session-1");
   });
 
@@ -240,12 +241,12 @@ describe("Director room workflow", () => {
       socket.receive({
         type: "error",
         code: "ROOM_EXISTS",
-        message: 'Room "Setup / Mixer - ..." already exists.',
+        message: 'Room "MEDIA" already exists.',
       }),
     );
 
     expect(screen.getByRole("alert")).toHaveTextContent(
-      'Room "Setup / Mixer - ..." already exists.',
+      'Room "MEDIA" already exists.',
     );
     expect(screen.getByLabelText("Room name")).toHaveValue("MEDIA");
     expect(screen.getByRole("button", { name: "Create room" })).toBeEnabled();
@@ -280,21 +281,22 @@ describe("Director room workflow", () => {
       socket.receive(joinedRoom);
     });
 
+    fireEvent.click(screen.getByRole("button", { name: "Live" }));
     fireEvent.click(screen.getByRole("button", { name: "End room" }));
     expect(sentMessages(socket).at(-1)).toEqual({ type: "end_room" });
 
     act(() =>
       socket.receive({
         type: "room_closed",
-        room: "Setup / Mixer - ...",
+        room: "MEDIA",
         reason: "ended_by_director",
       }),
     );
 
-    expect(screen.getByRole("heading", { name: "Setup - Create a room" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Setup — Create a room" })).toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent("Room closed by director");
     expect(screen.queryByRole("button", { name: "End room" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: "Setup / Mixer - ..." })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Setup / Mixer — MEDIA" })).not.toBeInTheDocument();
   });
 
   it("resumes with the stored session token and restores the server snapshot", () => {
@@ -315,12 +317,13 @@ describe("Director room workflow", () => {
     });
 
     // A room list is not participation: the Director must not invent a room.
-    expect(screen.getByRole("heading", { name: "Setup - Create a room" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Setup — Create a room" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "End room" })).not.toBeInTheDocument();
 
     act(() => socket.receive(joinedRoom));
 
-    expect(screen.getByRole("heading", { name: "Setup / Mixer - ..." })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Setup / Mixer — MEDIA" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Live" }));
     expect(screen.getByRole("button", { name: "End room" })).toBeInTheDocument();
   });
 
@@ -341,9 +344,9 @@ describe("Director room workflow", () => {
 
     expect(storage.getItem(DIRECTOR_SESSION_STORAGE_KEY)).toBeNull();
     expect(screen.getByRole("alert")).toHaveTextContent("Your session has expired.");
-    expect(screen.getByRole("heading", { name: "Setup - Create a room" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Setup — Create a room" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "End room" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: "Setup / Mixer - ..." })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Setup / Mixer — MEDIA" })).not.toBeInTheDocument();
   });
 });
 
