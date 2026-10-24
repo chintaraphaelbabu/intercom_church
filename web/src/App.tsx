@@ -139,7 +139,7 @@ export function App({ connectionOptions, media: mediaOverride }: AppProps = {}):
       {joinedRoom === undefined ? (
         <>
           <section className="card" aria-labelledby="create-heading">
-            <h2 id="create-heading">Setup — Create a room</h2>
+            <h2 id="create-heading">Setup - Create a room</h2>
             <p className="muted">
               Name the room the camera Operators will join. The room exists until you
               end it or the control server stops.
@@ -222,7 +222,7 @@ export function App({ connectionOptions, media: mediaOverride }: AppProps = {}):
       ) : view === "setup" ? (
         <section className="card room" aria-labelledby="room-heading">
           <div className="card__title">
-            <h2 id="room-heading">Setup / Mixer — {joinedRoom.name}</h2>
+            <h2 id="room-heading">Setup / Mixer - {joinedRoom.name}</h2>
             <span className="status status--connected">{joinedRoom.status}</span>
           </div>
           <dl className="facts">
@@ -239,7 +239,7 @@ export function App({ connectionOptions, media: mediaOverride }: AppProps = {}):
             {joinedRoom.operators.map((op) => (
               <li key={op.id} style={{ marginBottom: 8, borderBottom: "1px solid #ddd", paddingBottom: 8 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: "space-between" }}>
-                  <span><strong>Cam {op.camera}</strong> — {op.name}</span>
+                  <span><strong>Cam {op.camera}</strong> - {op.name}</span>
                   <div style={{ display: "flex", gap: 6 }}>
                     <button type="button" onClick={() => connection.setMute(op.id, true)} aria-label={`Mute ${op.name}`}>Mute</button>
                     <button type="button" onClick={() => connection.setMute(op.id, false)} aria-label={`Unmute ${op.name}`}>Unmute</button>
@@ -303,7 +303,7 @@ export function App({ connectionOptions, media: mediaOverride }: AppProps = {}):
       ) : view === "live" ? (
         <section className="card room" aria-labelledby="room-heading">
           <div className="card__title">
-            <h2 id="room-heading">Live — {joinedRoom.name}</h2>
+            <h2 id="room-heading">Live - {joinedRoom.name}</h2>
             <span className="status status--connected">{joinedRoom.status}</span>
           </div>
           <dl className="facts">
