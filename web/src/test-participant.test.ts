@@ -67,6 +67,15 @@ class FakeRoom implements DirectorRoom {
   getParticipants(): DirectorRoomParticipant[] {
     return [];
   }
+  getLatencyMs(): number | undefined {
+    return undefined;
+  }
+  getJitterMs(): number | undefined {
+    return undefined;
+  }
+  getPacketLossPercent(): number | undefined {
+    return undefined;
+  }
 }
 
 describe("createOperatorTestParticipant", () => {

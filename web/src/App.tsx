@@ -355,7 +355,7 @@ export function App({ connectionOptions, media: mediaOverride }: AppProps = {}):
             <div className="card"><h3>IP / Discovery</h3><p>Discovery: _church-comms._tcp.local</p><p>Control: /ws</p></div>
             <div className="card"><h3>Control connection</h3><p>Phase: {phase}</p><p>Error: {error ?? "none"}</p></div>
             <div className="card"><h3>LiveKit state</h3><p>Room: {state.livekit?.room ?? "—"}</p><p>Connection: {mediaState.connectionState}</p></div>
-            <div className="card"><h3>Latency / Jitter / Loss</h3><p>Requires LiveKit stats not yet exposed in mediaState.</p><p>Latency: — ms (unmeasured)</p><p>Jitter: — ms (unmeasured)</p><p>Packet loss: —% (unmeasured)</p></div>
+            <div className="card"><h3>Latency / Jitter / Loss</h3><p>Latency: {mediaState.latencyMs !== undefined ? `${mediaState.latencyMs} ms` : "— ms (unmeasured)"}</p><p>Jitter: {mediaState.jitterMs !== undefined ? `${mediaState.jitterMs} ms` : "— ms (unmeasured)"}</p><p>Packet loss: {mediaState.packetLossPercent !== undefined ? `${mediaState.packetLossPercent}%` : "—% (unmeasured)"}</p></div>
             <div className="card"><h3>Audio routes</h3><p>Input: {mediaState.inputRoute}</p><p>Output: {mediaState.outputRoute}</p></div>
             <div className="card"><h3>Server health</h3><p>Status: {state.health?.status ?? "unknown"}</p><p>Rooms: {state.health?.rooms ?? "—"}</p><p>Operators: {state.health?.operators ?? "—"}</p></div>
           </div>

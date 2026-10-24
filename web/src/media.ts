@@ -38,6 +38,9 @@ export interface DirectorMediaState {
   masterVolume: number;
   inputRoute: string;
   outputRoute: string;
+  latencyMs?: number;
+  jitterMs?: number;
+  packetLossPercent?: number;
 }
 
 export interface DirectorMediaToken {
@@ -77,6 +80,9 @@ export interface DirectorRoom {
     handler: (state: MediaConnectionState) => void,
   ): () => void;
   getAudioRoutes(): AudioRouteLabels | Promise<AudioRouteLabels>;
+  getLatencyMs(): number | undefined;
+  getJitterMs(): number | undefined;
+  getPacketLossPercent(): number | undefined;
 }
 
 export interface DirectorMediaOptions {
@@ -98,6 +104,9 @@ const initialState: DirectorMediaState = {
   masterVolume: 100,
   inputRoute: DEFAULT_ROUTES.input,
   outputRoute: DEFAULT_ROUTES.output,
+  latencyMs: undefined,
+  jitterMs: undefined,
+  packetLossPercent: undefined,
 };
 
 function clampVolume(volume: number): number {
@@ -253,6 +262,9 @@ export class DirectorMedia {
       connectionState: "idle",
       participants: [],
       masterVolume: 100,
+      latencyMs: undefined,
+      jitterMs: undefined,
+      packetLossPercent: undefined,
     });
   }
 
@@ -300,6 +312,7 @@ export class DirectorMedia {
         error: undefined,
       });
       this.refreshParticipants();
+      this.refreshStats();
       return true;
     } catch (error) {
       this.room = undefined;
@@ -311,6 +324,18 @@ export class DirectorMedia {
       });
       return false;
     }
+  }
+
+  private refreshStats(): void {
+    const room = this.room;
+    if (room === undefined) {
+      return;
+    }
+    this.update({
+      latencyMs: room.getLatencyMs(),
+      jitterMs: room.getJitterMs(),
+      packetLossPercent: room.getPacketLossPercent(),
+    });
   }
 
   private attachListeners(room: DirectorRoom): void {
@@ -337,6 +362,7 @@ export class DirectorMedia {
       }),
       room.onConnectionStateChanged((state) => {
         this.update({ connectionState: state });
+        this.refreshStats();
       }),
     );
   }

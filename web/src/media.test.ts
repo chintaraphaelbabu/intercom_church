@@ -131,6 +131,18 @@ class FakeRoom implements DirectorRoom {
   dropConnection(): void {
     this.disconnectedHandler?.();
   }
+
+  getLatencyMs(): number | undefined {
+    return 50;
+  }
+
+  getJitterMs(): number | undefined {
+    return 8;
+  }
+
+  getPacketLossPercent(): number | undefined {
+    return 0.5;
+  }
 }
 
 function createMedia(

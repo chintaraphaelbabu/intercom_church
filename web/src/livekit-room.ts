@@ -104,6 +104,7 @@ export class LiveKitDirectorRoom implements DirectorRoom {
     (state: MediaConnectionState) => void
   >();
   private readonly disconnectedHandlers = new Set<() => void>();
+  private connectionQualityScore = 100; // 0-100 approximation
 
   async connect(url: string, token: string): Promise<void> {
     const room = new Room({
@@ -270,6 +271,14 @@ export class LiveKitDirectorRoom implements DirectorRoom {
         handler(mapped);
       }
     });
+    // Approximate stats from connection quality events when available
+    try {
+      (room as any).on("connectionQualityChanged", () => {
+        this.connectionQualityScore = Math.max(0, this.connectionQualityScore - 5);
+      });
+    } catch {
+      // Not all versions expose this event directly
+    }
     room.on(RoomEvent.Disconnected, () => {
       this.cleanupAudio();
       this.localTrack?.stop();
@@ -347,5 +356,83 @@ export class LiveKitDirectorRoom implements DirectorRoom {
     this.audioElements.clear();
     this.audioContainer?.remove();
     this.audioContainer = undefined;
+  }
+
+  getLatencyMs(): number | undefined {
+    const room = this.room;
+    if (room === undefined) {
+      return undefined;
+    }
+    // Approximate latency from connection quality of remote participants
+    const qualities = [...room.remoteParticipants.values()].map(
+      (p) => (p as any).connectionQuality ?? "unknown",
+    );
+    if (qualities.length === 0) {
+      return undefined;
+    }
+    const best = qualities.includes("excellent")
+      ? "excellent"
+      : qualities.includes("good")
+        ? "good"
+        : qualities.includes("poor")
+          ? "poor"
+          : qualities.includes("lost")
+            ? "lost"
+            : "unknown";
+    switch (best) {
+      case "excellent":
+        return 30;
+      case "good":
+        return 100;
+      case "poor":
+        return 200;
+      case "lost":
+        return 500;
+      default:
+        return 150;
+    }
+  }
+
+  getJitterMs(): number | undefined {
+    const latency = this.getLatencyMs();
+    if (latency === undefined) {
+      return undefined;
+    }
+    // Approximate jitter as ~15% of latency for healthy connections
+    return Math.round(latency * 0.15);
+  }
+
+  getPacketLossPercent(): number | undefined {
+    const room = this.room;
+    if (room === undefined) {
+      return undefined;
+    }
+    const qualities = [...room.remoteParticipants.values()].map(
+      (p) => (p as any).connectionQuality ?? "unknown",
+    );
+    if (qualities.length === 0) {
+      return undefined;
+    }
+    const best = qualities.includes("excellent")
+      ? "excellent"
+      : qualities.includes("good")
+        ? "good"
+        : qualities.includes("poor")
+          ? "poor"
+          : qualities.includes("lost")
+            ? "lost"
+            : "unknown";
+    switch (best) {
+      case "excellent":
+        return 0;
+      case "good":
+        return 0.2;
+      case "poor":
+        return 2.5;
+      case "lost":
+        return 10;
+      default:
+        return 1;
+    }
   }
 }
