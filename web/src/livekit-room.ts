@@ -104,7 +104,24 @@ export class LiveKitDirectorRoom implements DirectorRoom {
     (state: MediaConnectionState) => void
   >();
   private readonly disconnectedHandlers = new Set<() => void>();
-  private connectionQualityScore = 100; // 0-100 approximation
+
+  private getConnectionQualityBest(room: Room): string {
+    const qualities = [...room.remoteParticipants.values()].map(
+      (p) => (p as any).connectionQuality ?? "unknown",
+    );
+    if (qualities.length === 0) {
+      return "unknown";
+    }
+    return qualities.includes("excellent")
+      ? "excellent"
+      : qualities.includes("good")
+        ? "good"
+        : qualities.includes("poor")
+          ? "poor"
+          : qualities.includes("lost")
+            ? "lost"
+            : "unknown";
+  }
 
   async connect(url: string, token: string): Promise<void> {
     const room = new Room({
@@ -274,7 +291,7 @@ export class LiveKitDirectorRoom implements DirectorRoom {
     // Approximate stats from connection quality events when available
     try {
       (room as any).on("connectionQualityChanged", () => {
-        this.connectionQualityScore = Math.max(0, this.connectionQualityScore - 5);
+        // Approximate stats handled by getConnectionQualityBest
       });
     } catch {
       // Not all versions expose this event directly
@@ -364,21 +381,11 @@ export class LiveKitDirectorRoom implements DirectorRoom {
       return undefined;
     }
     // Approximate latency from connection quality of remote participants
-    const qualities = [...room.remoteParticipants.values()].map(
-      (p) => (p as any).connectionQuality ?? "unknown",
-    );
-    if (qualities.length === 0) {
+    const participants = [...room.remoteParticipants.values()];
+    if (participants.length === 0) {
       return undefined;
     }
-    const best = qualities.includes("excellent")
-      ? "excellent"
-      : qualities.includes("good")
-        ? "good"
-        : qualities.includes("poor")
-          ? "poor"
-          : qualities.includes("lost")
-            ? "lost"
-            : "unknown";
+    const best = this.getConnectionQualityBest(room);
     switch (best) {
       case "excellent":
         return 30;
@@ -407,21 +414,11 @@ export class LiveKitDirectorRoom implements DirectorRoom {
     if (room === undefined) {
       return undefined;
     }
-    const qualities = [...room.remoteParticipants.values()].map(
-      (p) => (p as any).connectionQuality ?? "unknown",
-    );
-    if (qualities.length === 0) {
+    const participants = [...room.remoteParticipants.values()];
+    if (participants.length === 0) {
       return undefined;
     }
-    const best = qualities.includes("excellent")
-      ? "excellent"
-      : qualities.includes("good")
-        ? "good"
-        : qualities.includes("poor")
-          ? "poor"
-          : qualities.includes("lost")
-            ? "lost"
-            : "unknown";
+    const best = this.getConnectionQualityBest(room);
     switch (best) {
       case "excellent":
         return 0;
