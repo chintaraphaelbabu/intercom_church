@@ -278,6 +278,22 @@ export function App({ connectionOptions, media: mediaOverride }: AppProps = {}):
             ))}
           </ul>
 
+          <h3>Master volume</h3>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <label htmlFor="master-volume" style={{ fontSize: 12 }}>Master</label>
+            <input
+              id="master-volume"
+              type="range"
+              min={0}
+              max={100}
+              step={1}
+              value={mediaState.masterVolume}
+              onChange={(e) => media.setMasterVolume(Number(e.target.value))}
+              style={{ flex: "1 1 120px" }}
+            />
+            <span style={{ fontSize: 11, minWidth: 36 }}>{mediaState.masterVolume}%</span>
+          </div>
+
           <h3>Headset check</h3>
           <div className="card">
             <p>Input: <span className="mono">{mediaState.inputRoute}</span> · Output: <span className="mono">{mediaState.outputRoute}</span></p>
@@ -309,6 +325,20 @@ export function App({ connectionOptions, media: mediaOverride }: AppProps = {}):
           </div>
 
           <p className="muted">Ending the room disconnects every Operator immediately.</p>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
+            <label htmlFor="master-volume-live" style={{ fontSize: 12 }}>Master volume</label>
+            <input
+              id="master-volume-live"
+              type="range"
+              min={0}
+              max={100}
+              step={1}
+              value={mediaState.masterVolume}
+              onChange={(e) => media.setMasterVolume(Number(e.target.value))}
+              style={{ flex: "1 1 120px" }}
+            />
+            <span style={{ fontSize: 11, minWidth: 36 }}>{mediaState.masterVolume}%</span>
+          </div>
           <button type="button" className="button--danger" onClick={() => connection.endRoom()}>End room</button>
         </section>
       ) : (
