@@ -210,7 +210,7 @@ describe("Director room workflow", () => {
       socket.receive(serverInfo);
     });
 
-    expect(screen.getByLabelText("Room name")).toHaveValue("Setup / Mixer - ...");
+    expect(screen.getByLabelText("Room name")).toHaveValue("MEDIA");
     fireEvent.click(screen.getByRole("button", { name: "Create room" }));
 
     expect(sentMessages(socket)).toContainEqual({
@@ -247,7 +247,7 @@ describe("Director room workflow", () => {
     expect(screen.getByRole("alert")).toHaveTextContent(
       'Room "Setup / Mixer - ..." already exists.',
     );
-    expect(screen.getByLabelText("Room name")).toHaveValue("Setup / Mixer - ...");
+    expect(screen.getByLabelText("Room name")).toHaveValue("MEDIA");
     expect(screen.getByRole("button", { name: "Create room" })).toBeEnabled();
     expect(screen.queryByRole("button", { name: "End room" })).not.toBeInTheDocument();
   });
