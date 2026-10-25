@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -28,6 +27,9 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
+import com.churchcomms.operator.ui.theme.FlatBlackBg
+import com.churchcomms.operator.ui.theme.FlatBlackBorder
+import com.churchcomms.operator.ui.theme.SquareShape
 import androidx.compose.ui.unit.dp
 
 private val TransmittingColor = Color(0xFFB3261E)
@@ -55,7 +57,7 @@ fun PttButton(
     val container = when {
         transmitting -> TransmittingColor
         enabled -> MaterialTheme.colorScheme.primaryContainer
-        else -> MaterialTheme.colorScheme.surfaceVariant
+        else -> FlatBlackBg
     }
     val content = when {
         transmitting -> TransmittingText
@@ -109,16 +111,12 @@ fun PttButton(
                     },
                 )
             },
-        shape = RoundedCornerShape(28.dp),
+        shape = SquareShape,
         color = container,
         contentColor = content,
         border = BorderStroke(
             width = 2.dp,
-            color = if (transmitting) {
-                TransmittingText.copy(alpha = 0.55f)
-            } else {
-                MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
-            },
+            color = FlatBlackBorder,
         ),
     ) {
         Column(

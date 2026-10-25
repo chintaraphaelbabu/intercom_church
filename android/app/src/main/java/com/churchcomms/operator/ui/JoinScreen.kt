@@ -8,7 +8,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
@@ -29,6 +29,9 @@ import com.churchcomms.operator.discovery.DiscoveryState
 import com.churchcomms.operator.protocol.RoomSummary
 import com.churchcomms.operator.session.SessionState
 import com.churchcomms.operator.session.participantCount
+import com.churchcomms.operator.ui.theme.FlatBlackBg
+import com.churchcomms.operator.ui.theme.FlatBlackBorder
+import com.churchcomms.operator.ui.theme.SquareShape
 
 @Composable
 fun JoinScreen(
@@ -141,8 +144,9 @@ private fun RoomLobby(
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.surface,
-        shape = RoundedCornerShape(14.dp),
+        color = FlatBlackBg,
+        shape = SquareShape,
+        border = BorderStroke(width = 1.dp, color = FlatBlackBorder),
     ) {
         Column(Modifier.padding(16.dp)) {
             Row(
@@ -213,8 +217,9 @@ private fun RoomCard(
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.surfaceVariant,
-        shape = RoundedCornerShape(12.dp),
+        color = FlatBlackBg,
+        shape = SquareShape,
+        border = BorderStroke(width = 1.dp, color = FlatBlackBorder),
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
@@ -288,7 +293,7 @@ private fun DiscoveryContent(
 
     // Advanced — manual address only under Advanced
     Spacer(Modifier.height(16.dp))
-    Surface(modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.surfaceVariant, shape = RoundedCornerShape(12.dp)) {
+    Surface(modifier = Modifier.fillMaxWidth(), color = FlatBlackBg, shape = SquareShape, border = BorderStroke(width = 1.dp, color = FlatBlackBorder)) {
         Column(Modifier.padding(12.dp)) {
             Text("Advanced", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(4.dp))
@@ -315,8 +320,9 @@ private fun ServerCard(
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.surface,
-        shape = RoundedCornerShape(14.dp),
+        color = FlatBlackBg,
+        shape = SquareShape,
+        border = BorderStroke(width = 1.dp, color = FlatBlackBorder),
     ) {
         Column(Modifier.padding(16.dp)) {
             Row(

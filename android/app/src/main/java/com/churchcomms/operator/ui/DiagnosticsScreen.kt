@@ -6,7 +6,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -20,6 +20,9 @@ import com.churchcomms.operator.discovery.DiscoveryState
 import com.churchcomms.operator.media.MediaState
 import com.churchcomms.operator.protocol.Protocol
 import com.churchcomms.operator.session.SessionState
+import com.churchcomms.operator.ui.theme.FlatBlackBg
+import com.churchcomms.operator.ui.theme.FlatBlackBorder
+import com.churchcomms.operator.ui.theme.SquareShape
 
 /**
  * Placeholder diagnostics surface. Ticket 12 fills in Wi-Fi/IP, LiveKit stats,
@@ -36,8 +39,9 @@ fun DiagnosticsScreen(state: SessionState) {
     ) {
         Surface(
             modifier = Modifier.fillMaxWidth(),
-            color = MaterialTheme.colorScheme.surface,
-            shape = RoundedCornerShape(14.dp),
+            color = FlatBlackBg,
+            shape = SquareShape,
+            border = BorderStroke(width = 1.dp, color = FlatBlackBorder),
         ) {
             Column(Modifier.padding(16.dp)) {
                 Text(

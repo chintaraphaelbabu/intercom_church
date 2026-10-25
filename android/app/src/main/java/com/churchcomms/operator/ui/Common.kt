@@ -1,5 +1,6 @@
 package com.churchcomms.operator.ui
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -21,13 +22,17 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.churchcomms.operator.ui.theme.FlatBlackBg
+import com.churchcomms.operator.ui.theme.FlatBlackBorder
+import com.churchcomms.operator.ui.theme.SquareShape
 
 @Composable
 fun StatusCard(title: String, detail: String, busy: Boolean) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.surface,
-        shape = RoundedCornerShape(14.dp),
+        color = FlatBlackBg,
+        shape = SquareShape,
+        border = BorderStroke(width = 1.dp, color = FlatBlackBorder),
     ) {
         Row(
             modifier = Modifier.padding(16.dp),
@@ -56,8 +61,9 @@ fun StatusCard(title: String, detail: String, busy: Boolean) {
 fun ErrorCard(message: String, title: String = "Connection problem") {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        color = Color(0xFF2A1719),
-        shape = RoundedCornerShape(12.dp),
+        color = FlatBlackBg,
+        shape = SquareShape,
+        border = BorderStroke(width = 1.dp, color = FlatBlackBorder),
     ) {
         Column(Modifier.padding(16.dp)) {
             Text(

@@ -8,7 +8,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
@@ -26,6 +26,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.churchcomms.operator.control.ControlState
 import com.churchcomms.operator.session.SessionState
+import com.churchcomms.operator.ui.theme.FlatBlackBg
+import com.churchcomms.operator.ui.theme.FlatBlackBorder
+import com.churchcomms.operator.ui.theme.SquareShape
 import com.churchcomms.operator.ui.PttButton
 
 @Composable
@@ -46,8 +49,9 @@ fun LiveScreen(
     ) {
         Surface(
             modifier = Modifier.fillMaxWidth(),
-            color = MaterialTheme.colorScheme.surface,
-            shape = RoundedCornerShape(14.dp),
+            color = FlatBlackBg,
+            shape = SquareShape,
+            border = BorderStroke(width = 1.dp, color = FlatBlackBorder),
         ) {
             Column(Modifier.padding(16.dp)) {
                 Text("Live View", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
@@ -74,7 +78,7 @@ fun LiveScreen(
 
         Spacer(Modifier.height(16.dp))
         // Master volume + state
-        Surface(modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.surface, shape = RoundedCornerShape(14.dp)) {
+        Surface(modifier = Modifier.fillMaxWidth(), color = FlatBlackBg, shape = SquareShape, border = BorderStroke(width = 1.dp, color = FlatBlackBorder)) {
             Column(Modifier.padding(16.dp)) {
                 Text("Master volume", fontWeight = FontWeight.SemiBold)
                 Slider(value = masterVolumeState.value, onValueChange = { masterVolumeState.value = it; actions.setMasterVolume(it) }, modifier = Modifier.fillMaxWidth())
@@ -89,7 +93,7 @@ fun LiveScreen(
         Spacer(Modifier.height(12.dp))
         // Director absence countdown visible
         joined?.room?.graceDeadline?.let { deadline ->
-            Surface(modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.surfaceVariant, shape = RoundedCornerShape(12.dp)) {
+            Surface(modifier = Modifier.fillMaxWidth(), color = FlatBlackBg, shape = SquareShape, border = BorderStroke(width = 1.dp, color = FlatBlackBorder)) {
                 Column(Modifier.padding(12.dp)) {
                     Text("Director absence countdown", fontWeight = FontWeight.SemiBold, color = Color(0xFFFFC56B))
                     Text("Grace deadline: $deadline", style = MaterialTheme.typography.bodySmall, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
@@ -107,8 +111,9 @@ fun LiveScreen(
 @Composable
 private fun StatusChip(label: String, accent: Boolean = true) {
     Surface(
-        color = if (accent) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
-        shape = RoundedCornerShape(8.dp),
+        color = if (accent) MaterialTheme.colorScheme.primary else FlatBlackBg,
+        shape = SquareShape,
+        border = BorderStroke(width = 1.dp, color = FlatBlackBorder),
     ) {
         Text(label, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp), color = if (accent) Color.White else MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelSmall)
     }

@@ -8,7 +8,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
@@ -26,6 +26,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.churchcomms.operator.control.ControlState
 import com.churchcomms.operator.session.SessionState
+import com.churchcomms.operator.ui.theme.FlatBlackBg
+import com.churchcomms.operator.ui.theme.FlatBlackBorder
+import com.churchcomms.operator.ui.theme.SquareShape
 
 @Composable
 fun MixerScreen(
@@ -43,8 +46,9 @@ fun MixerScreen(
     ) {
         Surface(
             modifier = Modifier.fillMaxWidth(),
-            color = MaterialTheme.colorScheme.surface,
-            shape = RoundedCornerShape(14.dp),
+            color = FlatBlackBg,
+            shape = SquareShape,
+            border = BorderStroke(width = 1.dp, color = FlatBlackBorder),
         ) {
             Column(Modifier.padding(16.dp)) {
                 Text("Mixer View", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
@@ -84,8 +88,9 @@ private fun RosterVolumeRow(name: String, camera: Int, muted: Boolean, volume: F
     val volumeState = remember { mutableFloatStateOf(volume) }
     Surface(
         modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant,
-        shape = RoundedCornerShape(10.dp),
+        color = FlatBlackBg,
+        shape = SquareShape,
+        border = BorderStroke(width = 1.dp, color = FlatBlackBorder),
     ) {
         Column(Modifier.padding(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
