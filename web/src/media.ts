@@ -80,6 +80,8 @@ export interface DirectorRoom {
     handler: (state: MediaConnectionState) => void,
   ): () => void;
   getAudioRoutes(): AudioRouteLabels | Promise<AudioRouteLabels>;
+  /** Hard mute/unmute a remote participant's audio playback. */
+  muteRemoteParticipant(identity: string, muted: boolean): void;
   getLatencyMs(): number | undefined;
   getJitterMs(): number | undefined;
   getPacketLossPercent(): number | undefined;

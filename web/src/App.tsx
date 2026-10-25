@@ -42,6 +42,9 @@ export interface DirectorMediaControls {
   getState(): DirectorMediaState;
   subscribe(listener: () => void): () => void;
   setOpenMic(enabled: boolean, credentials?: DirectorMediaToken): Promise<void>;
+  setParticipantVolume(identity: string, volume: number): void;
+  setMasterVolume(volume: number): void;
+  muteRemoteParticipant(identity: string, muted: boolean): void;
   disconnect(): Promise<void>;
 }
 
@@ -268,10 +271,11 @@ export function App({ connectionOptions, media: mediaOverride }: AppProps = {}):
             {joinedRoom.operators.map((op) => (
               <li key={op.id} style={{ marginBottom: 8, borderBottom: "1px solid #333", paddingBottom: 8 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: "space-between" }}>
-                  <span><strong>Cam {op.camera}</strong> - {op.name}</span>
+                  <span><strong>Cam {op.cameraNumber}</strong> - {op.name}</span>
                   <div style={{ display: "flex", gap: 6 }}>
-                    <button type="button" onClick={() => connection.setMute(op.id, true)} aria-label={`Mute ${op.name}`}>Mute</button>
-                    <button type="button" onClick={() => connection.setMute(op.id, false)} aria-label={`Unmute ${op.name}`}>Unmute</button>
+                    <button type="button" onClick={() => { connection.setMute(op.id, !op.muted); media.muteRemoteParticipant(op.id, !op.muted); }} aria-label={`${op.muted ? "Unmute" : "Mute"} ${op.name}`} aria-pressed={op.muted}>
+                    {op.muted ? "Unmute" : "Mute"}
+                  </button>
                   </div>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
@@ -335,8 +339,8 @@ export function App({ connectionOptions, media: mediaOverride }: AppProps = {}):
           <h3>Operator mute buttons</h3>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
             {joinedRoom.operators.map((op) => (
-              <button key={op.id} type="button" onClick={() => connection.setMute(op.id, true)} aria-pressed={op.muted}>
-                {op.name} {op.muted ? "(muted)" : ""}
+              <button key={op.id} type="button" onClick={() => { connection.setMute(op.id, !op.muted); media.muteRemoteParticipant(op.id, !op.muted); }} aria-pressed={op.muted}>
+                {op.name} {op.muted ? "(unmute)" : "(mute)"}
               </button>
             ))}
           </div>

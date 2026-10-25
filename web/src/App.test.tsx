@@ -121,6 +121,23 @@ class FakeDirectorMedia implements DirectorMediaControls {
     }
   }
 
+  setParticipantVolume(identity: string, volume: number): void {
+    const participants = this.state.participants.map((p) =>
+      p.identity === identity ? { ...p, volume } : p,
+    );
+    this.state = { ...this.state, participants };
+    for (const listener of this.listeners) listener();
+  }
+
+  setMasterVolume(volume: number): void {
+    this.state = { ...this.state, masterVolume: volume };
+    for (const listener of this.listeners) listener();
+  }
+
+  muteRemoteParticipant(identity: string, muted: boolean): void {
+    // Hard mute handled by media layer; no-op for test mock.
+  }
+
   async disconnect(): Promise<void> {
     this.state = {
       ...this.state,

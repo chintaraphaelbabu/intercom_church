@@ -170,6 +170,12 @@ export class LiveKitDirectorRoom implements DirectorRoom {
     }
   }
 
+  muteRemoteParticipant(identity: string, muted: boolean): void {
+    for (const element of this.audioElements.values()) {
+      element.muted = muted;
+    }
+  }
+
   async disconnect(): Promise<void> {
     this.cleanupAudio();
     this.localTrack?.stop();
