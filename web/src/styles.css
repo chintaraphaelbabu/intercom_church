@@ -1,13 +1,17 @@
 :root {
-  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+  font-family: "Cascadia Mono", Consolas, monospace, system-ui, sans-serif;
   color: #eef2f7;
-  background: #0d1117;
-  --surface: #161d27;
-  --surface-raised: #1d2634;
-  --border: #2b3648;
-  --muted: #93a1b5;
-  --accent: #4cc2a0;
-  --danger: #ff7a7a;
+  background: #000;
+  --surface: #0a0a0a;
+  --surface-raised: #111;
+  --border: #333;
+  --muted: #888;
+  --accent: #fff;
+  --danger: #ff5555;
+  --flat-bg: #000;
+  --flat-border: #333;
+  --flat-accent: #fff;
+  --font-mono-family: "Cascadia Mono", Consolas, monospace;
 }
 
 * {
@@ -17,15 +21,12 @@
 body {
   margin: 0;
   min-height: 100vh;
-  background:
-    radial-gradient(circle at 15% 0%, #173026 0%, transparent 45%),
-    radial-gradient(circle at 100% 10%, #1a2738 0%, transparent 40%),
-    #0d1117;
+  background: #000;
 }
 
 .director {
-  max-width: 860px;
-  margin: 0 auto;
+  max-width: 100%;
+  margin: 0;
   padding: 48px 24px 64px;
 }
 
@@ -60,7 +61,7 @@ h2 {
 
 .status {
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: 0;
   padding: 6px 14px;
   font-size: 0.8rem;
   font-weight: 600;
@@ -310,4 +311,17 @@ dd {
   dd {
     text-align: left;
   }
+}
+
+/* Flat-black sharp / square classes for redesign */
+.sharp-button {
+  border-radius: 0;
+}
+
+.sharp-card {
+  border-radius: 0;
+}
+
+.sharp-status {
+  border-radius: 0;
 }
