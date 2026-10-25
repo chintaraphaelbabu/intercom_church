@@ -266,7 +266,7 @@ export function App({ connectionOptions, media: mediaOverride }: AppProps = {}):
           <h3>Roster</h3>
           <ul style={{ paddingLeft: 0, listStyle: "none" }}>
             {joinedRoom.operators.map((op) => (
-              <li key={op.id} style={{ marginBottom: 8, borderBottom: "1px solid #ddd", paddingBottom: 8 }}>
+              <li key={op.id} style={{ marginBottom: 8, borderBottom: "1px solid #333", paddingBottom: 8 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: "space-between" }}>
                   <span><strong>Cam {op.camera}</strong> - {op.name}</span>
                   <div style={{ display: "flex", gap: 6 }}>
@@ -293,17 +293,17 @@ export function App({ connectionOptions, media: mediaOverride }: AppProps = {}):
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <span style={{ fontSize: 12 }}>Level:</span>
-                  <div style={{ width: 60, height: 12, background: "#e0e0e0", border: "1px solid #ccc", borderRadius: 2, overflow: "hidden" }}>
+                  <div style={{ width: 60, height: 12, background: "#111", border: "1px solid #333", borderRadius: 0, overflow: "hidden" }}>
                     <div
                       style={{
                         width: `${Math.round((mediaState.participants.find(p => p.identity === op.id)?.level ?? 0) * 100)}%`,
                         height: "100%",
-                        background: "#2a7",
+                        background: "#fff",
                       }}
                     />
                   </div>
                 </div>
-                {op.muted && <span style={{ color: "#c00" }}>Muted by director</span>}
+                {op.muted && <span style={{ color: "#ff5555" }}>Muted by director</span>}
               </li>
             ))}
           </ul>
