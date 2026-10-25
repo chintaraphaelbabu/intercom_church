@@ -4,6 +4,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.unit.dp
+
+val FlatBlackBg = Color(0xFF000000)
+val FlatBlackBorder = Color(0xFF333333)
+val SquareShape = RoundedCornerShape(0.dp)
 
 private val ChurchCommsColors = darkColorScheme(
     primary = Color(0xFF4CC2A0),

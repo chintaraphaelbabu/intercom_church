@@ -1,0 +1,4 @@
+<resources>
+    <attr name="flatBlackBg" format="color"/>
+    <attr name="flatBlackBorder" format="color"/>
+</resources>

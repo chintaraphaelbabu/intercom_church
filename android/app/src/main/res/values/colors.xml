@@ -1,3 +1,5 @@
 <resources>
     <color name="ic_launcher_background">#0D1117</color>
+    <color name="flat_black_bg">#000000</color>
+    <color name="flat_black_border">#333333</color>
 </resources>
