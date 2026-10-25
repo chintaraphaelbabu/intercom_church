@@ -14,6 +14,33 @@ import {
   type DirectorMediaToken,
 } from "./media";
 
+function MasterVolume({
+  volume,
+  onChange,
+}: {
+  volume: number;
+  onChange: (volume: number) => void;
+}): JSX.Element {
+  return (
+    <div style={{ marginTop: 12 }}>
+      <label htmlFor="master-volume" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <span>Master volume</span>
+        <input
+          id="master-volume"
+          type="range"
+          min={0}
+          max={100}
+          step={1}
+          value={volume}
+          onChange={(e) => onChange(Number(e.target.value))}
+          style={{ flex: 1 }}
+        />
+        <span className="mono" style={{ minWidth: 36, textAlign: "right" }}>{volume}%</span>
+      </label>
+    </div>
+  );
+}
+
 function mediaStatusLabel(phase: DirectorMediaState["phase"]): string {
   switch (phase) {
     case "idle":
@@ -249,6 +276,18 @@ export function App({ connectionOptions, media: mediaOverride }: AppProps = {}):
                   </div>
                 </div>
                 <div>Volume: {mediaState.participants.find(p => p.identity === op.id)?.volume ?? 100}% — Level: {(mediaState.participants.find(p => p.identity === op.id)?.level ?? 0 * 100).toFixed(0)}</div>
+                <div style={{ marginTop: 4 }}>
+                  <input
+                    type="range"
+                    min={0}
+                    max={100}
+                    step={1}
+                    value={mediaState.participants.find(p => p.identity === op.id)?.volume ?? 100}
+                    onChange={(e) => media.setParticipantVolume(op.id, Number(e.target.value))}
+                    style={{ width: "100%" }}
+                    aria-label={`Volume for ${op.name}`}
+                  />
+                </div>
                 {op.muted && <span style={{ color: "#c00" }}>Muted by director</span>}
               </li>
             ))}
@@ -259,6 +298,8 @@ export function App({ connectionOptions, media: mediaOverride }: AppProps = {}):
             <p>Input: <span className="mono">{mediaState.inputRoute}</span> · Output: <span className="mono">{mediaState.outputRoute}</span></p>
             <button type="button" onClick={async () => { try { const devices = await navigator.mediaDevices.enumerateDevices(); alert("Devices: " + devices.length); } catch { alert("Cannot enumerate devices"); } }}>Check headset devices</button>
           </div>
+
+          <MasterVolume volume={mediaState.masterVolume} onChange={(v) => media.setMasterVolume(v)} />
         </section>
       ) : view === "live" ? (
         <section className="card room" aria-labelledby="room-heading">
@@ -285,6 +326,7 @@ export function App({ connectionOptions, media: mediaOverride }: AppProps = {}):
           </div>
 
           <p className="muted">Ending the room disconnects every Operator immediately.</p>
+          <MasterVolume volume={mediaState.masterVolume} onChange={(v) => media.setMasterVolume(v)} />
           <button type="button" className="button--danger" onClick={() => connection.endRoom()}>End room</button>
         </section>
       ) : (
