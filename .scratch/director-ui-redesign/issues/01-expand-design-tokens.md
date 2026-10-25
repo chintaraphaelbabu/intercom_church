@@ -6,6 +6,6 @@
 
 **Status:** resolved
 
-- [ ] New variables added beside existing `:root`
-- [ ] Square button / sharp status / sharp card classes available
-- [ ] Old styles untouched (coexist)
+- [x] New variables added beside existing `:root`
+- [x] Square button / sharp status / sharp card classes available
+- [x] Old styles untouched (coexist)

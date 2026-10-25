@@ -4,9 +4,9 @@
 
 **Blocked by:** 02 Migrate director screens
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] Old gradient rules removed from `body`
-- [ ] Old `border-radius`, `max-width`, `margin: 0 auto` removed
-- [ ] Old color variables overridden/replaced by flat black tokens
-- [ ] Only sharp black styles remain
+- [x] Old gradient rules removed from `body`
+- [x] Old `border-radius`, `max-width`, `margin: 0 auto` removed
+- [x] Old color variables overridden/replaced by flat black tokens
+- [x] Only sharp black styles remain

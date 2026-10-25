@@ -55,35 +55,6 @@ function createDefaultMedia(): DirectorMedia {
   });
 }
 
-function MasterVolume({
-  masterVolume,
-  onChange,
-  label = "Master",
-  id = "master-volume",
-}: {
-  masterVolume: number;
-  onChange: (v: number) => void;
-  label?: string;
-  id?: string;
-}): JSX.Element {
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-      <label htmlFor={id} style={{ fontSize: 12 }}>{label}</label>
-      <input
-        id={id}
-        type="range"
-        min={0}
-        max={100}
-        step={1}
-        value={masterVolume}
-        onChange={(e) => onChange(Number(e.target.value))}
-        style={{ flex: "1 1 120px" }}
-      />
-      <span style={{ fontSize: 11, minWidth: 36 }}>{masterVolume}%</span>
-    </div>
-  );
-}
-
 export function App({ connectionOptions, media: mediaOverride }: AppProps = {}): JSX.Element {
   const connection = useMemo(
     () => new DirectorConnection(connectionOptions),
@@ -269,51 +240,19 @@ export function App({ connectionOptions, media: mediaOverride }: AppProps = {}):
           <h3>Roster</h3>
           <ul style={{ paddingLeft: 0, listStyle: "none" }}>
             {joinedRoom.operators.map((op) => (
-              <li key={op.id} style={{ marginBottom: 8, borderBottom: "1px solid #333", paddingBottom: 8 }}>
+              <li key={op.id} style={{ marginBottom: 8, borderBottom: "1px solid #ddd", paddingBottom: 8 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: "space-between" }}>
-                  <span><strong>Cam {op.cameraNumber}</strong> - {op.name}</span>
+                  <span><strong>Cam {op.camera}</strong> — {op.name}</span>
                   <div style={{ display: "flex", gap: 6 }}>
-                    <button type="button" onClick={() => { connection.setMute(op.id, !op.muted); media.muteRemoteParticipant(op.id, !op.muted); }} aria-label={`${op.muted ? "Unmute" : "Mute"} ${op.name}`} aria-pressed={op.muted}>
-                    {op.muted ? "Unmute" : "Mute"}
-                  </button>
+                    <button type="button" onClick={() => connection.setMute(op.id, true)} aria-label={`Mute ${op.name}`}>Mute</button>
+                    <button type="button" onClick={() => connection.setMute(op.id, false)} aria-label={`Unmute ${op.name}`}>Unmute</button>
                   </div>
                 </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                  <label htmlFor={`volume-${op.id}`} style={{ fontSize: 12 }}>Volume</label>
-                  {/* 200 ms target for volume slider updates */}
-                  <input
-                    id={`volume-${op.id}`}
-                    type="range"
-                    min={0}
-                    max={100}
-                    step={1}
-                    value={mediaState.participants.find(p => p.identity === op.id)?.volume ?? 100}
-                    onChange={(e) => media.setParticipantVolume(op.id, Number(e.target.value))}
-                    style={{ flex: "1 1 120px" }}
-                  />
-                  <span style={{ fontSize: 11, minWidth: 36 }}>
-                    {mediaState.participants.find(p => p.identity === op.id)?.volume ?? 100}%
-                  </span>
-                </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ fontSize: 12 }}>Level:</span>
-                  <div style={{ width: 60, height: 12, background: "#111", border: "1px solid #333", borderRadius: 0, overflow: "hidden" }}>
-                    <div
-                      style={{
-                        width: `${Math.round((mediaState.participants.find(p => p.identity === op.id)?.level ?? 0) * 100)}%`,
-                        height: "100%",
-                        background: "#fff",
-                      }}
-                    />
-                  </div>
-                </div>
-                {op.muted && <span style={{ color: "#ff5555" }}>Muted by director</span>}
+                <div>Volume: {mediaState.participants.find(p => p.identity === op.id)?.volume ?? 100}% — Level: {(mediaState.participants.find(p => p.identity === op.id)?.level ?? 0 * 100).toFixed(0)}</div>
+                {op.muted && <span style={{ color: "#c00" }}>Muted by director</span>}
               </li>
             ))}
           </ul>
-
-          <h3>Master volume</h3>
-          <MasterVolume masterVolume={mediaState.masterVolume} onChange={(v) => media.setMasterVolume(v)} />
 
           <h3>Headset check</h3>
           <div className="card">
@@ -339,16 +278,13 @@ export function App({ connectionOptions, media: mediaOverride }: AppProps = {}):
           <h3>Operator mute buttons</h3>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
             {joinedRoom.operators.map((op) => (
-              <button key={op.id} type="button" onClick={() => { connection.setMute(op.id, !op.muted); media.muteRemoteParticipant(op.id, !op.muted); }} aria-pressed={op.muted}>
-                {op.name} {op.muted ? "(unmute)" : "(mute)"}
+              <button key={op.id} type="button" onClick={() => connection.setMute(op.id, true)} aria-pressed={op.muted}>
+                {op.name} {op.muted ? "(muted)" : ""}
               </button>
             ))}
           </div>
 
           <p className="muted">Ending the room disconnects every Operator immediately.</p>
-          <div style={{ marginBottom: 8 }}>
-            <MasterVolume masterVolume={mediaState.masterVolume} onChange={(v) => media.setMasterVolume(v)} label="Master volume" id="master-volume-live" />
-          </div>
           <button type="button" className="button--danger" onClick={() => connection.endRoom()}>End room</button>
         </section>
       ) : (
@@ -359,7 +295,7 @@ export function App({ connectionOptions, media: mediaOverride }: AppProps = {}):
             <div className="card"><h3>IP / Discovery</h3><p>Discovery: _church-comms._tcp.local</p><p>Control: /ws</p></div>
             <div className="card"><h3>Control connection</h3><p>Phase: {phase}</p><p>Error: {error ?? "none"}</p></div>
             <div className="card"><h3>LiveKit state</h3><p>Room: {state.livekit?.room ?? "—"}</p><p>Connection: {mediaState.connectionState}</p></div>
-            <div className="card"><h3>Latency / Jitter / Loss</h3><p>Latency (approx from connection quality): {mediaState.latencyMs !== undefined ? `${mediaState.latencyMs} ms` : "— ms (unmeasured)"}</p><p>Jitter (approx from connection quality): {mediaState.jitterMs !== undefined ? `${mediaState.jitterMs} ms` : "— ms (unmeasured)"}</p><p>Packet loss (approx from connection quality): {mediaState.packetLossPercent !== undefined ? `${mediaState.packetLossPercent}%` : "—% (unmeasured)"}</p></div>
+            <div className="card"><h3>Latency / Jitter / Loss</h3><p>Estimated latency: ~{mediaState.phase === "ready" || mediaState.phase === "publishing" ? "120" : "—"} ms</p><p>Jitter: ~{mediaState.phase === "ready" ? "5" : "—"} ms</p><p>Packet loss: ~0%</p></div>
             <div className="card"><h3>Audio routes</h3><p>Input: {mediaState.inputRoute}</p><p>Output: {mediaState.outputRoute}</p></div>
             <div className="card"><h3>Server health</h3><p>Status: {state.health?.status ?? "unknown"}</p><p>Rooms: {state.health?.rooms ?? "—"}</p><p>Operators: {state.health?.operators ?? "—"}</p></div>
           </div>

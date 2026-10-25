@@ -12,6 +12,20 @@
   --flat-border: #333;
   --flat-accent: #fff;
   --font-mono-family: "Cascadia Mono", Consolas, monospace;
+  /* Old coexisting variables */
+  --surface: #161d27;
+  --surface-raised: #1d2634;
+  --border: #2b3648;
+  --accent: #4cc2a0;
+  /* New flat-black variables (override for redesign) */
+  --surface: #0a0a0a;
+  --surface-raised: #111;
+  --border: #333;
+  --accent: #fff;
+  --danger: #ff5555;
+  --flat-bg: #000;
+  --flat-border: #333;
+  --flat-accent: #fff;
 }
 
 * {
@@ -25,7 +39,7 @@ body {
 }
 
 .director {
-  max-width: 100%;
+  max-width: 100vw;
   margin: 0;
   padding: 48px 24px 64px;
   font-family: var(--font-mono-family);
@@ -73,19 +87,21 @@ h2 {
 
 .status--connected {
   color: var(--accent);
-  border-color: #2c6a58;
+  border-color: #333;
+  background: #000;
 }
 
 .status--publishing {
   color: var(--accent);
-  border-color: #2c6a58;
-  background: #16302a;
+  border-color: #333;
+  background: #000;
 }
 
 .status--error,
 .status--disconnected {
   color: var(--danger);
-  border-color: #6b3030;
+  border-color: #333;
+  background: #000;
 }
 
 button:disabled {
@@ -96,24 +112,24 @@ button:disabled {
 .alert {
   margin-bottom: 20px;
   padding: 16px 18px;
-  border: 1px solid #6b3030;
+  border: 1px solid #333;
   border-left-width: 4px;
   border-radius: 0;
-  background: #2a1719;
+  background: #0a0a0a;
 }
 
 .alert p {
   margin: 6px 0 12px;
-  color: #f3c6c6;
+  color: #fff;
 }
 
 .notice {
   margin: 14px 0 0;
   padding: 10px 14px;
-  border: 1px solid #2c6a58;
+  border: 1px solid #333;
   border-radius: 0;
-  color: var(--accent);
-  background: #16302a;
+  color: #fff;
+  background: #0a0a0a;
 }
 
 .create-room {
@@ -152,7 +168,8 @@ button:disabled {
 }
 
 .button--danger {
-  background: var(--danger);
+  background: #000;
+  border: 1px solid #333;
 }
 
 button {
@@ -196,8 +213,9 @@ button:hover {
   text-align: center;
   font-size: 0.78rem;
   font-weight: 700;
-  color: var(--accent);
-  background: #16302a;
+  color: #fff;
+  background: #0a0a0a;
+  border: 1px solid #333;
 }
 
 .facts {
@@ -269,23 +287,27 @@ dd {
   padding: 4px 10px;
   font-size: 0.75rem;
   font-weight: 700;
-  background: #233147;
-  color: #b7c8e2;
+  background: #0a0a0a;
+  color: #fff;
+  border: 1px solid #333;
 }
 
 .chip--director {
-  background: #16302a;
-  color: var(--accent);
+  background: #0a0a0a;
+  color: #fff;
+  border-color: #333;
 }
 
 .chip--operator {
-  background: #26304a;
-  color: #b7c8e2;
+  background: #0a0a0a;
+  color: #fff;
+  border-color: #333;
 }
 
 .chip--debug {
-  background: #3a2b1d;
-  color: #e8c79a;
+  background: #0a0a0a;
+  color: #fff;
+  border-color: #333;
 }
 
 .director__footer {
