@@ -314,15 +314,4 @@ dd {
   }
 }
 
-/* Flat-black sharp / square classes for redesign */
-.sharp-button {
-  border-radius: 0;
-}
 
-.sharp-card {
-  border-radius: 0;
-}
-
-.sharp-status {
-  border-radius: 0;
-}
