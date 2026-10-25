@@ -21,6 +21,7 @@
     "dev": "concurrently -n server,web -c blue,green \"npm run dev --workspace @church-comms/server\" \"npm run dev --workspace @church-comms/web\""
   },
   "devDependencies": {
+    "@testing-library/user-event": "^14.6.8",
     "concurrently": "^10.0.6"
   },
   "engines": {

@@ -44,7 +44,7 @@ export interface DirectorMediaControls {
   setOpenMic(enabled: boolean, credentials?: DirectorMediaToken): Promise<void>;
   setParticipantVolume(identity: string, volume: number): void;
   setMasterVolume(volume: number): void;
-  muteRemoteParticipant(identity: string, muted: boolean): void;
+
   disconnect(): Promise<void>;
 }
 
@@ -242,7 +242,7 @@ export function App({ connectionOptions, media: mediaOverride }: AppProps = {}):
             {joinedRoom.operators.map((op) => (
               <li key={op.id} style={{ marginBottom: 8, borderBottom: "1px solid #ddd", paddingBottom: 8 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: "space-between" }}>
-                  <span><strong>Cam {op.camera}</strong> — {op.name}</span>
+                  <span><strong>Cam {op.cameraNumber}</strong> — {op.name}</span>
                   <div style={{ display: "flex", gap: 6 }}>
                     <button type="button" onClick={() => connection.setMute(op.id, true)} aria-label={`Mute ${op.name}`}>Mute</button>
                     <button type="button" onClick={() => connection.setMute(op.id, false)} aria-label={`Unmute ${op.name}`}>Unmute</button>
