@@ -21,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.churchcomms.operator.ui.theme.SquareShape
 import com.churchcomms.operator.control.ControlState
 import com.churchcomms.operator.media.MediaState
 import com.churchcomms.operator.protocol.RosterClient
@@ -153,7 +154,7 @@ private fun JoinedContent(control: ControlState.Joined) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.surface,
-        shape = RoundedCornerShape(14.dp),
+        shape = SquareShape,
     ) {
         Column(Modifier.padding(16.dp)) {
             Row(
@@ -211,7 +212,7 @@ private fun TalkPanel(
     Surface(
         modifier = Modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.surface,
-        shape = RoundedCornerShape(14.dp),
+        shape = SquareShape,
     ) {
         Column(Modifier.padding(16.dp)) {
             Row(
@@ -287,7 +288,7 @@ private fun DirectorAudioPanel(
     Surface(
         modifier = Modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.surface,
-        shape = RoundedCornerShape(14.dp),
+        shape = SquareShape,
     ) {
         Column(Modifier.padding(16.dp)) {
             Row(

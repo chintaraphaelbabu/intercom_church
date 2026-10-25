@@ -12,20 +12,20 @@ val FlatBlackBorder = Color(0xFF333333)
 val SquareShape = RoundedCornerShape(0.dp)
 
 private val ChurchCommsColors = darkColorScheme(
-    primary = Color(0xFF4CC2A0),
-    onPrimary = Color(0xFF06110D),
-    primaryContainer = Color(0xFF16302A),
-    onPrimaryContainer = Color(0xFFB9F2E0),
-    secondary = Color(0xFF8FB3D9),
-    onSecondary = Color(0xFF07121F),
-    background = Color(0xFF0D1117),
-    onBackground = Color(0xFFEEF2F7),
-    surface = Color(0xFF161D27),
-    onSurface = Color(0xFFEEF2F7),
-    surfaceVariant = Color(0xFF1D2634),
-    onSurfaceVariant = Color(0xFF93A1B5),
-    error = Color(0xFFFF7A7A),
-    onError = Color(0xFF2A1719),
+    primary = Color(0xFF333333),
+    onPrimary = Color(0xFFFFFFFF),
+    primaryContainer = Color(0xFF000000),
+    onPrimaryContainer = Color(0xFFFFFFFF),
+    secondary = Color(0xFF333333),
+    onSecondary = Color(0xFFFFFFFF),
+    background = Color(0xFF000000),
+    onBackground = Color(0xFFFFFFFF),
+    surface = Color(0xFF333333),
+    onSurface = Color(0xFFFFFFFF),
+    surfaceVariant = Color(0xFF000000),
+    onSurfaceVariant = Color(0xFFFFFFFF),
+    error = Color(0xFF333333),
+    onError = Color(0xFFFFFFFF),
 )
 
 @Composable
